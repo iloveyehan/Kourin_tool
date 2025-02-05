@@ -23,7 +23,7 @@ def set_brush_color_based_on_mode(picker,color=None,hsv=None):
     # print(context.active_object)
     mode = picker.mode
     # if hsv:
-    debug_print(1,hsv,'画笔颜色hsv',color)
+    # debug_print(1,hsv,'画笔颜色hsv',color)
 
     # color=(colorsys.hsv_to_rgb(*color))
     # debug_print(1,'画笔颜色rgb',color,mode)

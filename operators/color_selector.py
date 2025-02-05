@@ -7,7 +7,7 @@ import platform
 import weakref
 import numpy as np
 from PySide6.QtCore import Qt, QRect, QPoint, Signal,QRectF,QPointF
-from PySide6.QtGui import QPaintEvent, QWindow, QGuiApplication, QConicalGradient, QLinearGradient,QColor, QPainter,QPen
+from PySide6.QtGui import QPaintEvent, QWindow, QGuiApplication, QConicalGradient, QLinearGradient,QColor,QBrush, QPainter,QPen
 from PySide6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout,QPushButton,QSlider
 
 
@@ -36,10 +36,10 @@ class CustomColorPicker(QWidget):
         for key,v in k.items():
             setattr(self,key,v)
         self.mode=self.context.mode
-   
+        self._pressed=False
         self.init_pos=QPointF(*tuple(self.init_pos-self.cp_margin))
         # 初始 HSV 值
-        self.hue = 0          # 色相 [0, 360)
+        self.hue = 0.0          # 色相 [0, 360)
         self.saturation = 1.0 # 饱和度 [0, 1]
         self.value = 1.0      # 明度 [0, 1]
         # 用于交互状态，指示当前处于哪个区域控制中："ring" 或 "sv"
@@ -61,7 +61,6 @@ class CustomColorPicker(QWidget):
     def toggle_color_mode(self):
         """切换色环模式"""
         self.is_ryb_mode = not self.is_ryb_mode
-        self.emitColorChanged()  # 新增此行
         self.update()
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -104,7 +103,7 @@ class CustomColorPicker(QWidget):
         )
 
         # 用控件背景色“挖空”内侧，形成环状效果
-        inner_rect = QRectF(center.x() - inner_radius, center.y() - inner_radius,
+        inner_rect = QRect(center.x() - inner_radius, center.y() - inner_radius,
                             2 * inner_radius, 2 * inner_radius)
         # 先挖掉,再绘制一层背景色,才能设置半透明
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
@@ -128,27 +127,64 @@ class CustomColorPicker(QWidget):
         #                         center.y() + mid_radius * math.sin(angle_rad))
         # painter.setPen(Qt.black)
         # painter.drawLine(center, indicator_pos)
-
+    
 
         # 绘制当前色相指示点
-        mid_radius = outer_radius-10
+        mid_radius = float(outer_radius-10)
         angle_rad = math.radians(self.hue - 90)
-        indicator_pos = QPointF(center.x() + mid_radius * math.cos(angle_rad),
-                                center.y() + mid_radius * math.sin(angle_rad))
-        black=30
-        # 绘制指示点
-        painter.setPen(QPen(QColor(black, black, black), 3.0))
-        painter.setBrush(QColor(black, black, black))
-        painter.drawEllipse(indicator_pos.x() - 11.0, indicator_pos.y() - 11.0, 22.0, 22.0)  # 外圈
-        white=220
-        painter.setPen(QPen(QColor(white, white, white), 3.0))
-        painter.setBrush(QColor(white, white, white))
-        painter.drawEllipse(indicator_pos.x() - 10.0, indicator_pos.y() - 10.0, 20.0, 20.0)  # 外圈
+        # print(f'center {center}angle_rad',angle_rad)
+        indicator_pos = QPointF((center.x() + mid_radius * math.cos(angle_rad)),
+                               (center.y() + mid_radius * math.sin(angle_rad))
+                               )
+         # 绘制指示器线条
+        # angle_rad = math.radians(angle)
+        indicator_length = float(outer_radius)
+        # x = center.x() + indicator_length * math.cos(angle_rad)
+        # y = center.y() + indicator_length * math.sin(angle_rad)
+        # painter.setPen(QPen(Qt.black, 3))
+        # painter.drawLine(center, QPointF(x, y))
+        # painter.end()
 
-        painter.setPen(QPen(current_color, 2.0))
-        painter.setBrush(current_color)
-        painter.drawEllipse(indicator_pos.x() - 9.0, indicator_pos.y() - 9.0, 18.0, 18.0)  # 内圈
-        # painter.drawEllipse(self.init_pos.x(), self.init_pos.y(), 18.0, 18.0)  # 内圈
+
+
+        # 保存当前绘制状态
+        black=30
+        white=220
+        painter.setPen(QPen(QColor(black, black, black), 1.5))
+        # painter.setPen(QPen(Qt.white, 2))  # 边框：白色，宽度2像素
+        painter.setBrush(current_color)         # 填充：黑色
+        painter.save()
+        # 平移坐标系到中心点，并旋转角度
+        quad_border_w=16
+        quad_border_l=26
+        quad_width=quad_border_w-2
+        quad_length=quad_border_l-2
+        painter.translate(center)
+        painter.rotate(math.degrees(angle_rad))  # 弧度转角度
+        # 绘制矩形：起点(0, -1.5)，长度indicator_length，宽度3
+        rect = QRectF(inner_radius-0.5*(quad_border_l-ring_thickness), -0.5*quad_border_w, quad_border_l, quad_border_w)
+        painter.drawRect(rect)
+        
+        # 恢复绘制状态
+        painter.restore()
+
+
+
+        # painter.restore()
+        # 绘制指示点
+        # black=30
+        # painter.setPen(QPen(QColor(black, black, black), 3))
+        # painter.setBrush(QColor(black, black, black))
+        # painter.drawEllipse(indicator_pos.x() - 11, indicator_pos.y() - 11, 22, 22)  # 外圈.
+
+        # white=220
+        # painter.setPen(QPen(QColor(white, white, white), 3))
+        # painter.setBrush(QColor(white, white, white))
+        # painter.drawEllipse(indicator_pos.x() - 10, indicator_pos.y() - 10, 20, 20)  # 外圈
+  
+        # painter.setPen(QPen(current_color, 2.0))
+        # painter.setBrush(current_color)
+        # painter.drawEllipse(indicator_pos.x() - 9, indicator_pos.y() - 9, 18, 18)  # 内圈
 
 
 
@@ -194,7 +230,7 @@ class CustomColorPicker(QWidget):
         painter.setPen(QPen(current_color, 2))
         painter.setBrush(current_color)
         painter.drawEllipse(QPointF(indX, indY), 4, 4)  # 内圈
-        
+        painter.end()
     def mousePressEvent(self, event):
         pos = event.pos()
         center = self._cached_center if self._cached_center is not None else self.init_pos
@@ -211,8 +247,9 @@ class CustomColorPicker(QWidget):
             return
 
         # 如果点击在正方形区域内，则控制饱和度和明度
-        square_side = (2 * inner) - 2 * self.gap
-        svRect = QRectF(center.x() - square_side / 2, center.y() - square_side / 2,
+        half_side = inner - self.gap
+        square_side = 2 * half_side
+        svRect = QRectF(center.x() - half_side, center.y() - half_side,
                         square_side, square_side)
         if svRect.contains(pos):
             self.activeControl = "sv"
@@ -226,6 +263,8 @@ class CustomColorPicker(QWidget):
         elif self.activeControl == "sv":
             self.updateSVFromPos(pos)
     def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._pressed = False
         self.activeControl = None
 
     def updateHueFromPos(self, pos):
@@ -247,7 +286,7 @@ class CustomColorPicker(QWidget):
         # 根据鼠标位置更新饱和度和明度
         center = self.init_pos
         inner = self._cached_inner_radius if self._cached_inner_radius is not None else 0
-        square_side = (2 * inner) - 2 * self.gap
+        square_side = 2 * (inner-self.gap)
         svRect = QRectF(center.x() - square_side / 2, center.y() - square_side / 2,
                         square_side, square_side)
         x = pos.x() - svRect.left()
@@ -327,8 +366,6 @@ class EmbeddedQtWidget(QWidget):
                 color: white;
                 border: 2px solid #666;
                 margin: 0px;
-                showShadow: true;
-                shadowRadius: 100;
             }
         """)
         self.slider.setMinimumWidth(100)
@@ -541,7 +578,7 @@ class EmbedQtOperator(bpy.types.Operator):
                 self._qt_window_ref().hide()
             self._cleanup()
             return {'CANCELLED'}
-        return {'RUNNING_MODAL'}
+        # return {'RUNNING_MODAL'}
         
         # 退出逻辑
         if event.type in {'ESC', 'RIGHTMOUSE'}:

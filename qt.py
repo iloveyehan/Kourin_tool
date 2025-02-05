@@ -231,7 +231,7 @@ class EmbedQtOperator(bpy.types.Operator):
         try:
             bpy._embedded_qt = EmbeddedQtWidget(parent_hwnd)
             # [!] 修改回调机制
-            QTimer.singleShot(500, self._safe_force_redraw)
+            QTimer.singleShot(50, self._safe_force_redraw)
         except Exception as e:
             self.report({'ERROR'}, str(e))
 
