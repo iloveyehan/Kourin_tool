@@ -64,7 +64,7 @@ class EmbeddedQtWidget(QWidget):
         # [!] Windows强制显示操作
         if platform.system() == "Windows":
             hwnd = int(self.winId())
-            debug_print(DEBUG_MODE,f"Windows窗口句柄ui: {hwnd}")
+            debug_print(f"Windows窗口句柄ui: {hwnd}")
 
             # 设置窗口层级
             # ctypes.windll.user32.SetWindowPos(
@@ -78,7 +78,7 @@ class EmbeddedQtWidget(QWidget):
             # ctypes.windll.user32.FlashWindow(hwnd, True)
 
         self.show()
-        debug_print(DEBUG_MODE,"窗口显示命令执行完毕")
+        debug_print("窗口显示命令执行完毕")
         # 新增拖动相关变量
         self.dragging = False
         self.drag_start_position = self.pos()
@@ -127,7 +127,7 @@ class EmbeddedQtWidget(QWidget):
         bpy.app.handlers.frame_change_pre.append(self._on_frame_changed)
 
     def _on_frame_changed(self,*a):
-        # debug_print(1,a)
+        # debug_print(a)
         """Blender帧变化回调函数"""
         # 通过Qt信号机制安全更新UI
         self.frame_changed_signal.emit(a[0].frame_current)
@@ -190,10 +190,10 @@ class CustomColorPicker(QWidget):
 
         # 内部状态：  
         # 色相（0~359）
-        self.hue = 0  
+        self.h = 0  
         # 饱和度和明度（0～1）——中间方块所选
-        self.saturation = 1.0  
-        self.value = 1.0  
+        self.s = 1.0  
+        self.v = 1.0  
         # 附加调节：  
         # S：调节饱和度倍率，范围 0～2，默认 1
         self.s_adj = 1.0  
@@ -224,7 +224,7 @@ class CustomColorPicker(QWidget):
 
         # 绘制色相指示线：从圆心到边缘指示当前色相
         painter.setPen(Qt.black)
-        angle_rad = math.radians(self.hue - 90)
+        angle_rad = math.radians(self.h - 90)
         indicatorX = center.x() + radius * 0.9 * cos(angle_rad)
         indicatorY = center.y() + radius * 0.9 * sin(angle_rad)
         painter.drawLine(center, QPoint(int(indicatorX), int(indicatorY)))
@@ -234,7 +234,7 @@ class CustomColorPicker(QWidget):
         # -------------------------
         svRect = self.svSquareRect
         # 1. 先填充当前色相的纯色
-        baseColor = QColor.fromHsv(self.hue, 255, 255)
+        baseColor = QColor.fromHsv(self.h, 255, 255)
         painter.fillRect(svRect, baseColor)
         # 2. 水平渐变：从白色到透明（调节饱和度）
         gradSat = QLinearGradient(svRect.topLeft(), svRect.topRight())
@@ -247,8 +247,8 @@ class CustomColorPicker(QWidget):
         gradVal.setColorAt(1, Qt.black)
         painter.fillRect(svRect, gradVal)
         # 绘制当前选择指示：小圆点的位置根据饱和度和明度
-        indX = svRect.left() + self.saturation * svRect.width()
-        indY = svRect.top() + (1 - self.value) * svRect.height()
+        indX = svRect.left() + self.s * svRect.width()
+        indY = svRect.top() + (1 - self.v) * svRect.height()
         painter.setPen(Qt.black)
         painter.drawEllipse(QPoint(int(indX), int(indY)), 5, 5)
 
@@ -264,25 +264,25 @@ class CustomColorPicker(QWidget):
                 normVal = (self.s_adj - 0) / 2.0
                 grad = QLinearGradient(rect.topLeft(), rect.topRight())
                 # 渐变从 desaturated 到 fully saturated（使用当前色相）
-                grad.setColorAt(0, QColor.fromHsv(self.hue, 0, 255))
-                grad.setColorAt(1, QColor.fromHsv(self.hue, 255, 255))
+                grad.setColorAt(0, QColor.fromHsv(self.h, 0, 255))
+                grad.setColorAt(1, QColor.fromHsv(self.h, 255, 255))
             elif key in ['R', 'G', 'B']:
                 # R/G/B：范围 -100～100，归一化：-100 -> 0, 0 -> 0.5, 100 -> 1
                 if key == 'R':
                     normVal = (self.r_adj + 100) / 200.0
-                    baseVal = QColor.fromHsv(self.hue, int(self.saturation * 255), int(self.value * 255)).red()
+                    baseVal = QColor.fromHsv(self.h, int(self.s * 255), int(self.v * 255)).red()
                     grad = QLinearGradient(rect.topLeft(), rect.topRight())
                     grad.setColorAt(0, QColor(max(0, baseVal - 100), 0, 0))
                     grad.setColorAt(1, QColor(min(255, baseVal + 100), 0, 0))
                 elif key == 'G':
                     normVal = (self.g_adj + 100) / 200.0
-                    baseVal = QColor.fromHsv(self.hue, int(self.saturation * 255), int(self.value * 255)).green()
+                    baseVal = QColor.fromHsv(self.h, int(self.s * 255), int(self.v * 255)).green()
                     grad = QLinearGradient(rect.topLeft(), rect.topRight())
                     grad.setColorAt(0, QColor(0, max(0, baseVal - 100), 0))
                     grad.setColorAt(1, QColor(0, min(255, baseVal + 100), 0))
                 elif key == 'B':
                     normVal = (self.b_adj + 100) / 200.0
-                    baseVal = QColor.fromHsv(self.hue, int(self.saturation * 255), int(self.value * 255)).blue()
+                    baseVal = QColor.fromHsv(self.h, int(self.s * 255), int(self.v * 255)).blue()
                     grad = QLinearGradient(rect.topLeft(), rect.topRight())
                     grad.setColorAt(0, QColor(0, 0, max(0, baseVal - 100)))
                     grad.setColorAt(1, QColor(0, 0, min(255, baseVal + 100)))
@@ -346,7 +346,7 @@ class CustomColorPicker(QWidget):
         angle = math.degrees(math.atan2(dy, dx))
         if angle < 0:
             angle += 360
-        self.hue = int(angle)
+        self.h = int(angle)
         self.emitColorChanged()
         self.update()
 
@@ -354,8 +354,8 @@ class CustomColorPicker(QWidget):
         rect = self.svSquareRect
         x = pos.x() - rect.left()
         y = pos.y() - rect.top()
-        self.saturation = max(0.0, min(1.0, x / rect.width()))
-        self.value = max(0.0, min(1.0, 1 - y / rect.height()))
+        self.s = max(0.0, min(1.0, x / rect.width()))
+        self.v = max(0.0, min(1.0, 1 - y / rect.height()))
         self.emitColorChanged()
         self.update()
 
@@ -380,9 +380,9 @@ class CustomColorPicker(QWidget):
     def emitColorChanged(self):
         # 根据当前参数计算最终颜色
         # 首先根据色相和 SV 得到 HSV 基础色
-        base = QColor.fromHsv(self.hue,
-                              int(self.saturation * 255 * self.s_adj),
-                              int(self.value * 255))
+        base = QColor.fromHsv(self.h,
+                              int(self.s * 255 * self.s_adj),
+                              int(self.v * 255))
         # 转换到 RGB 后叠加 R/G/B 偏移（注意控制范围在 0～255 内）
         r = max(0, min(255, base.red() + self.r_adj))
         g = max(0, min(255, base.green() + self.g_adj))

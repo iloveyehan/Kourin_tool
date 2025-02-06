@@ -1,5 +1,4 @@
-def debug_print(DEBUG_MODE,*args):
-    if DEBUG_MODE:
+def debug_print(*args):
         print("[DEBUG]", *args)
 import copy
 import colorsys
@@ -23,50 +22,80 @@ def set_brush_color_based_on_mode(picker,color=None,hsv=None):
     # print(context.active_object)
     mode = picker.mode
     # if hsv:
-    # debug_print(1,hsv,'画笔颜色hsv',color)
+    # debug_print(hsv,'画笔颜色hsv',color)
 
     # color=(colorsys.hsv_to_rgb(*color))
-    # debug_print(1,'画笔颜色rgb',color,mode)
+    # debug_print('画笔颜色rgb',color,mode)
     if hsv:
         # 根据不同的模式获取笔刷颜色
         if mode in ['VERTEX_PAINT','PAINT_VERTEX']:
             # 在顶点绘制模式下
-            picker.tool_settings.vertex_paint.brush.color.hsv = color
+            picker.vertex_paint.brush.color.hsv = color
 
         elif mode in ['TEXTURE_PAINT','PAINT_TEXTURE']:
             # 在纹理绘制模式下
-            picker.tool_settings.image_paint.brush.color.hsv = color
-            debug_print(1,hsv,'画笔验证hsv',picker.tool_settings.image_paint.brush.color.hsv)
+            picker.image_paint.brush.color.hsv = color
         elif mode == 'PAINT_GPENCIL':
             # 在 Grease Pencil 绘制模式下
-            picker.tool_settings.gpencil_paint.brush.color.hsv = color
+            picker.gpencil_paint.brush.color.hsv = color
         elif mode == 'VERTEX_GPENCIL':
             # 在 Grease Pencil 绘制模式下
-            picker.tool_settings.gpencil_vertex_paint.brush.color.hsv = color
+            picker.gpencil_vertex_paint.brush.color.hsv = color
         elif mode == 'SCULPT':
             bpy.data.brushes['Paint'].color.hsv = color
         elif picker.ui_mode == 'PAINT':
-            picker.tool_settings.image_paint.brush.color.hsv = color
+            picker.image_paint.brush.color.hsv = color
     else:
         # 根据不同的模式获取笔刷颜色
         if mode in ['VERTEX_PAINT','PAINT_VERTEX']:
             # 在顶点绘制模式下
-            picker.tool_settings.vertex_paint.brush.color=color
+            picker.vertex_paint.brush.color=color
 
         elif mode in ['TEXTURE_PAINT','PAINT_TEXTURE']:
             # 在纹理绘制模式下
-            picker.tool_settings.image_paint.brush.color=color
+            picker.image_paint.brush.color=color
 
         elif mode == 'PAINT_GPENCIL':
             # 在 Grease Pencil 绘制模式下
-            picker.tool_settings.gpencil_paint.brush.color=color
+            picker.gpencil_paint.brush.color=color
         elif mode == 'VERTEX_GPENCIL':
             # 在 Grease Pencil 绘制模式下
-            picker.tool_settings.gpencil_vertex_paint.brush.color = color
+            picker.gpencil_vertex_paint.brush.color = color
         elif mode == 'SCULPT':
             bpy.data.brushes['Paint'].color = color
         elif picker.ui_mode == 'PAINT':
-            picker.tool_settings.image_paint.brush.color = color
+            picker.image_paint.brush.color = color
+def get_brush_color_based_on_mode(picker):
+        '''根据模式获得画笔颜色'''
+        # 获取当前的模式
+        # mode = bpy.context.object.mode
+        mode = picker.mode
+        debug_print('当前模式',mode)
+        # 根据不同的模式获取笔刷颜色
+        if mode in ['VERTEX_PAINT','PAINT_VERTEX']:
+            # 在顶点绘制模式下
+            brush = picker.vertex_paint.brush
+            color = brush.color
+        elif mode in ['PAINT_TEXTURE','TEXTURE_PAINT']:
+            # 在纹理绘制模式下
+            brush = picker.image_paint.brush
+            color = brush.color
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            brush = picker.gpencil_paint.brush
+            color = brush.color
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            brush = picker.gpencil_vertex_paint.brush
+            color = brush.color
+        elif mode=='SCULPT':
+            brush = bpy.data.brushes['Paint']
+            color = brush.color
+        elif picker.ui_mode=='PAINT':
+            brush = picker.image_paint.brush
+            color = brush.color
+        return color
+
 def brush_value_based_on_mode(set=False,get=False,size=False,strength=False,):
     '''根据不同参数get或者set画笔的大小 强度'''
     mode = bpy.context.object.mode
@@ -229,60 +258,32 @@ def brush_value_based_on_mode(set=False,get=False,size=False,strength=False,):
             if strength:
                 value =  brush.strength
         return value
-def get_brush_color_based_on_mode():
-        '''根据模式获得画笔颜色'''
-        # 获取当前的模式
-        mode = bpy.context.object.mode
-
-        # 根据不同的模式获取笔刷颜色
-        if mode == 'VERTEX_PAINT':
-            # 在顶点绘制模式下
-            brush = bpy.context.tool_settings.vertex_paint.brush
-            color = brush.color
-        elif mode == 'TEXTURE_PAINT':
-            # 在纹理绘制模式下
-            brush = bpy.context.tool_settings.image_paint.brush
-            color = brush.color
-        elif mode == 'PAINT_GPENCIL':
-            # 在 Grease Pencil 绘制模式下
-            brush = bpy.context.tool_settings.gpencil_paint.brush
-            color = brush.color
-        elif mode == 'VERTEX_GPENCIL':
-            # 在 Grease Pencil 绘制模式下
-            brush = bpy.context.tool_settings.gpencil_vertex_paint.brush
-            color = brush.color
-        elif mode=='SCULPT':
-            brush = bpy.data.brushes['Paint']
-            color = brush.color
-        elif bpy.context.area.spaces.active.ui_mode=='PAINT':
-            brush = bpy.context.tool_settings.image_paint.brush
-            color = brush.color
-        return color
 
 
 
-def exchange_brush_color_based_on_mode(exchange=None):
+def exchange_brush_color_based_on_mode(picker,exchange=None):
     '''根据模式切换前景色后景色'''
-    mode = bpy.context.object.mode
+    # mode = bpy.context.object.mode
+    mode=picker.mode
     if exchange:
         # 根据不同的模式获取笔刷颜色
-        if mode == 'VERTEX_PAINT':
+        if mode in ['VERTEX_PAINT','PAINT_VERTEX']:
             # 在顶点绘制模式下
-            tmp=copy.deepcopy(bpy.context.tool_settings.vertex_paint.brush.color)
-            bpy.context.tool_settings.vertex_paint.brush.color= bpy.context.tool_settings.vertex_paint.brush.secondary_color
-            bpy.context.tool_settings.vertex_paint.brush.secondary_color=tmp
+            tmp=copy.deepcopy(picker.vertex_paint.brush.color)
+            picker.vertex_paint.brush.color= picker.vertex_paint.brush.secondary_color
+            picker.vertex_paint.brush.secondary_color=tmp
 
-        elif mode == 'TEXTURE_PAINT':
+        elif mode in ['PAINT_TEXTURE','TEXTURE_PAINT']:
             # 在纹理绘制模式下
-            tmp = copy.deepcopy(bpy.context.tool_settings.image_paint.brush.color)
-            bpy.context.tool_settings.image_paint.brush.color = bpy.context.tool_settings.image_paint.brush.secondary_color
-            bpy.context.tool_settings.image_paint.brush.secondary_color=tmp
+            tmp = copy.deepcopy(picker.image_paint.brush.color)
+            picker.image_paint.brush.color = picker.image_paint.brush.secondary_color
+            picker.image_paint.brush.secondary_color=tmp
 
         elif mode == 'PAINT_GPENCIL':
             # 在 Grease Pencil 绘制模式下
-            tmp = copy.deepcopy(bpy.context.tool_settings.gpencil_paint.brush.color)
-            bpy.context.tool_settings.gpencil_paint.brush.color = bpy.context.tool_settings.gpencil_paint.brush.secondary_color
-            bpy.context.tool_settings.gpencil_paint.brush.secondary_color=tmp
+            tmp = copy.deepcopy(picker.gpencil_paint.brush.color)
+            picker.gpencil_paint.brush.color = picker.gpencil_paint.brush.secondary_color
+            picker.gpencil_paint.brush.secondary_color=tmp
         elif mode == 'SCULPT':
             tmp = copy.deepcopy(bpy.data.brushes['Paint'].color)
             bpy.data.brushes['Paint'].color = bpy.data.brushes['Paint'].secondary_color
