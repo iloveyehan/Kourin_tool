@@ -6,11 +6,11 @@ from pathlib import Path
 import platform
 import weakref
 import numpy as np
-from PySide6.QtCore import Qt, QRect, QPoint, Signal,QRectF,QPointF
+from PySide6.QtCore import Qt, QRect, QPoint, Signal,QRectF,QPointF,QEvent
 from PySide6.QtGui import QPaintEvent, QWindow, QGuiApplication, QConicalGradient, QLinearGradient,QColor,QKeyEvent, QPainter,QPen
-from PySide6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout,QPushButton,QSlider
+from PySide6.QtWidgets import QApplication, QWidget, QLabel,QHBoxLayout,QGroupBox, QVBoxLayout,QPushButton,QSlider,QLineEdit
 
-
+from ..utils.bl2qtmp import blender_key_to_qt,forward_key_event_to_qt
 from ..utils.color_selector import debug_print,set_brush_color_based_on_mode,get_brush_color_based_on_mode,exchange_brush_color_based_on_mode
 # from ..ui.ui_color_selector import EmbeddedQtWidget,CustomColorPicker
 from ..common.class_loader.auto_load import ClassAutoloader
@@ -38,7 +38,7 @@ class CustomColorPicker(QWidget):
         
         self.mode=self.context.mode
         self.sv_pressed=False
-        self.init_pos=QPointF(*tuple(self.init_pos-self.cp_margin))
+        self.init_pos=QPointF(self.cp_radius+self.cp_margin,self.cp_radius+self.cp_margin)
         # 初始 HSV 值
         self.color=get_brush_color_based_on_mode(self)
         self.h = self.color.h*360.0         # 色相 [0, 360)
@@ -53,17 +53,26 @@ class CustomColorPicker(QWidget):
         self._cached_inner_radius = None
 
         #rbg hsv模式切换
-        self.is_ryb_mode=True
+        self.is_tri=True
         # 控制正方形与圆环之间的间隙
         self.gap = 0
         # self.setWindowFlags(Qt.FramelessWindowHint)  # [!] 关键：必须无边框
         # self.setAttribute(Qt.WA_TranslucentBackground, True)  # [!] 核心透明度属性
-
+        self.toggle_btn = QPushButton('',self)
+        self.toggle_btn.setFixedSize(25, 25)  # 正方形按钮
+        # self.toggle_btn.move(self.init_pos.x(), self.init_pos.y())  # 左上角位置
+        self.toggle_btn.clicked.connect(self.grab_screen_color)
+        self.toggle_btn.show()
+        # layout.addWidget(self.toggle_btn)
   
-    def toggle_color_mode(self):
+    def grab_screen_color(self):
         """切换色环模式"""
-        self.is_ryb_mode = not self.is_ryb_mode
-        self.update()
+        self.is_tri=not self.is_tri
+        screen=QApplication.primaryScreen()
+        pixmap=screen.grabWindow(QApplication.desktop().winId())
+        print(pixmap.toImage().pixel(self.mouse_pose))
+        return pixmap.toImage().pixel(self.mouse_pose)
+        # self.update()
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -122,9 +131,7 @@ class CustomColorPicker(QWidget):
         mid_radius = float(outer_radius-10)
         angle_rad = math.radians(self.h - 90)
         # print(f'center {center}angle_rad',angle_rad)
-        indicator_pos = QPointF((center.x() + mid_radius * math.cos(angle_rad)),
-                               (center.y() + mid_radius * math.sin(angle_rad))
-                               )
+  
          # 绘制指示器线条
 
 
@@ -295,13 +302,7 @@ class CustomColorPicker(QWidget):
         
         set_brush_color_based_on_mode(self,color=(self.h/360.0,self.s,self.v),hsv=1)
         self.update()
-    def keyPressEvent(self, event: QKeyEvent):
-        debug_print('按键事件')
-        if event.key() == Qt.Key_X:
-            print("按下了 'X' 键")
-        else:
-            print("按下了 '1' 键")
-            super().keyPressEvent(event)  # 处理其他按键事件  
+
 
 bg_color=(30, 30, 30, 200)
 # -----------------------------------------------------------------
@@ -313,7 +314,7 @@ class EmbeddedQtWidget(QWidget):
     def __init__(self,context, parent_hwnd,init_pos,):
         # for key,v in context_dict.items():
         #     setattr(self,key,v)
-        
+        super().__init__()
         self.context=context
         self.bg_color=bg_color
         window=bpy.context.window
@@ -321,32 +322,15 @@ class EmbeddedQtWidget(QWidget):
         width=window.width
         
         self.init_pos=np.array([init_pos[0],height-init_pos[1]])
-        super().__init__()
+        
         
         # Windows DPI处理
         if platform.system() == "Windows":
             self.setAttribute(Qt.WA_NativeWindow, True)
         
-        
-        
-        # 嵌入 Blender 主窗口（将传入的句柄转换为 QWindow 对象）
-        blender_window = QWindow.fromWinId(parent_hwnd)
-        if blender_window.screen() is None:
-            raise RuntimeError("无效的父窗口")
-        self.windowHandle().setParent(blender_window)
-
-        self.setWindowOpacity(0.99999)
-
-
-        self.setGeometry(0, 0, width, height)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setWindowFlags(Qt.FramelessWindowHint)  # [!] 关键：必须无边框
-        self.show()
-        self.setFocusPolicy(Qt.StrongFocus)
-
         # 创建自定义颜色选择器控件
         self.cp_dict={
-            'cp_radius':150,
+            'cp_radius':130,
             'cp_margin':10,
             'bg_color':self.bg_color,
             'init_pos':self.init_pos,
@@ -362,44 +346,46 @@ class EmbeddedQtWidget(QWidget):
             'gpencil_vertex_paint':context.tool_settings.gpencil_paint if hasattr(context.tool_settings,'gpencil_vertex_paint') else None,
         
         }
+        # 嵌入 Blender 主窗口（将传入的句柄转换为 QWindow 对象）
+        blender_window = QWindow.fromWinId(parent_hwnd)
+        if blender_window.screen() is None:
+            raise RuntimeError("无效的父窗口")
+        self.windowHandle().setParent(blender_window)
+        self.setWindowOpacity(0.99999)
 
+
+        self.setGeometry(
+            self.init_pos[0]-self.cp_dict['cp_radius']-2*self.cp_dict['cp_margin'],
+            self.init_pos[1]-self.cp_dict['cp_radius']-2*self.cp_dict['cp_margin'],
+            width,
+            height)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setWindowFlags(Qt.FramelessWindowHint)  # [!] 关键：必须无边框
+        self.show()
 
         # 将矩形放到鼠标位置(考虑colorpicker的间隔)
         self.init_pos=self.init_pos-self.cp_dict['cp_radius']-self.cp_dict['cp_margin']
         self.customColorPicker = CustomColorPicker(self,**self.cp_dict)
-
-        # 创建滑动条
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setRange(0, 20)
-        self.slider.setValue(10)
-        self.slider.setStyleSheet("""
-            QSlider {
-                width: 20px;
-                background-color: #666;
-                color: white;
-                border: 2px solid #666;
-                margin: 0px;
-            }
-        """)
-        self.slider.setMinimumWidth(100)
-        self.slider.setMinimumSize(100,100)
-        self.slider.setSingleStep(5)
-        self.slider.setPageStep(0)
-        
+        layout = QVBoxLayout()
         # self.customColorPicker.colorChanged.connect(self.on_color_changed)
          # 添加模式切换按钮
-        self.toggle_btn = QPushButton("", self)
-        self.toggle_btn.setFixedSize(50, 50)  # 正方形按钮
-        self.toggle_btn.move(100+self.init_pos[0], 100+self.init_pos[1])  # 左上角位置
-        self.toggle_btn.clicked.connect(self.toggle_color_mode)
+       
+        # self.customColorPicker.setGeometry( 
+        #     0,
+        #     0,  
+        #     3000,  # 宽度
+        #     3000   # 高度
+        # )
         # self.update_button_style()
         # 布局管理，将帧号标签与颜色选择器放入布局中
-        layout = QVBoxLayout()
-        # layout.addWidget(self.frame_label)
-        layout.addWidget(self.customColorPicker)
-        # layout.addWidget(self.toggle_btn)
-        # layout.addWidget(self.slider)
         
+        # layout.addWidget(self.frame_label)
+        
+        layout.addWidget(self.customColorPicker)
+        
+        # layout.addWidget(self.slider)
+        # self.customColorPicker.raise_()  # 确保在最上层
+        # self.customColorPicker.show()
         self.setLayout(layout)
         self.setWindowOpacity(1)
         self.update()
@@ -414,13 +400,6 @@ class EmbeddedQtWidget(QWidget):
         
         self.draw_start_pos = QPoint(0, 0)  # 默认绘制起点
         self.setMouseTracking(True)
-    def keyPressEvent(self, event: QKeyEvent):
-        debug_print('按键事件')
-        if event.key() == Qt.Key_X:
-            print("按下了 'X' 键")
-        else:
-            print("按下了 '1' 键")
-            super().keyPressEvent(event)  # 处理其他按键事件            
     def paintEvent(self, event: QPaintEvent) -> None:
         painter=QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -432,9 +411,9 @@ class EmbeddedQtWidget(QWidget):
         # rect = self.rect()
         # 以鼠标位置为起点绘制
         rect = QRect(
-            self.init_pos[0],  
-            self.init_pos[1], 
-            600, 320  # 100x100的矩形
+            0,  
+            0, 
+            600, 340  # 100x100的矩形
         )
         
         # 绘制带圆角的矩形背景
@@ -577,12 +556,18 @@ class EmbedQtOperator(bpy.types.Operator):
                     # ctypes.windll.user32.SetForegroundWindow(hwnd)
                 window.raise_()
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
-            if self._qt_window_ref and self._qt_window_ref():
-                self._qt_window_ref().hide()
+            # if self._qt_window_ref and self._qt_window_ref():
+                # self._qt_window_ref().hide()
             self._cleanup()
             return {'FINISHED'}
         # return {'RUNNING_MODAL'}
-        
+        if event.type =='X':
+            
+            color=get_brush_color_based_on_mode(bpy._embedded_qt.customColorPicker)
+            bpy._embedded_qt.customColorPicker.h=color.h*360.0
+            bpy._embedded_qt.customColorPicker.s=color.s
+            bpy._embedded_qt.customColorPicker.v=color.v
+            bpy._embedded_qt.customColorPicker.repaint()
         # 退出逻辑
         if event.type in {'ESC', 'RIGHTMOUSE'}:
             self._cleanup()
@@ -632,12 +617,12 @@ class EmbedQtOperator(bpy.types.Operator):
             }
             bpy._embedded_qt = EmbeddedQtWidget(context,parent_hwnd,init_pos=mouse_pose)
             # debug_print('上下文2',context,context.mode)
-            bpy._embedded_qt.show()
+            # bpy._embedded_qt.show()
             self.__class__._qt_window_ref = weakref.ref(bpy._embedded_qt)
             
             # [!] 强制处理Qt事件队列
-            QApplication.processEvents()
-            QApplication.sendPostedEvents(None, 0)
+            # QApplication.processEvents()
+            # QApplication.sendPostedEvents(None, 0)
             # debug_print('上下文3',context,context.mode)
             
             # debug_print('context.area.spaces.active.ui_mode',hasattr(context.area.spaces.active,'ui_mode'))

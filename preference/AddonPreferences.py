@@ -4,7 +4,7 @@ from pathlib import Path
 import bpy
 from bpy.props import StringProperty, IntProperty, BoolProperty
 from bpy.types import AddonPreferences
-
+from ..utils.registration import is_pyside6_installed
 from ..common.class_loader.auto_load import ClassAutoloader
 
 pref=ClassAutoloader(Path(__file__))
@@ -41,3 +41,17 @@ class Kourin_toolTOOLSPreference(AddonPreferences):
         layout.prop(self, "filepath")
         layout.prop(self, "number")
         layout.prop(self, "boolean")
+        layout = self.layout
+        if not is_pyside6_installed():
+            # 如果未安装 PySide6，显示提醒面板
+            box = layout.box()
+            box.label(text="PySide6 未安装", icon="ERROR")
+            box.label(text="请安装 PySide6 后并重启以使用此插件的完整功能。")
+            box.operator("kourin.install_pyside6", text="安装 PySide6")
+        else:
+            # 如果已安装 PySide6，显示正常设置
+            layout.label(text="PySide6 已安装，插件功能可用。")
+# class MyAddonPreferences(bpy.types.AddonPreferences):
+#     bl_idname = 'Kourin_tool.pyside6'
+#     def draw(self, context):
+        

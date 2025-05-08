@@ -1,12 +1,15 @@
+import subprocess
+import sys
 import typing
 from pathlib import Path
 
 
 # from .operators import origin
 import bpy
+from bpy_types import Operator
 
 
-from .utils.registration import register_keymaps, unregister_keymaps
+from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_installed
 from .panels.AddonPanels import AriEdgeSmoothSettings,AriTransferPositionSettings
 from .reg import keys
 from . import zh_CN
@@ -24,6 +27,35 @@ bl_info = {
     "category": "3D View"
 }
 
+# 插件主类
+class MyAddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+    def draw(self, context):
+        layout = self.layout
+        if not is_pyside6_installed():
+            # 如果未安装 PySide6，显示提醒面板
+            box = layout.box()
+            box.label(text="PySide6 未安装", icon="ERROR")
+            box.label(text="请安装 PySide6 后并重启以使用此插件的完整功能。")
+            box.operator("kourin.install_pyside6", text="安装 PySide6")
+        else:
+            # 如果已安装 PySide6，显示正常设置
+            layout.label(text="PySide6 已安装，插件功能可用。")
+class InstallPysideOperator(Operator):
+    """Install Pillow Library"""
+    bl_idname = "kourin.install_pyside6"
+    bl_label = "Install Pyside6"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        try:
+            import pip
+            # 安装Pyside6库
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "pyside6"])
+            self.report({'INFO'}, "Pyside6 installed successfully.")
+        except Exception as e:
+            self.report({'ERROR'}, str(e))
+        return {'FINISHED'}
 _addon_properties = {
 bpy.types.Scene: {
         "ari_edge_smooth_settings": bpy.props.PointerProperty(type=AriEdgeSmoothSettings),
@@ -78,35 +110,66 @@ class TranslationHelper():
 
     def unregister(self):
         bpy.app.translations.unregister(self.name)
-
-
+def reg_all():
+    ...
+def unreg_all():
+    ...
 Kourin_tool_zh_CN = TranslationHelper('Kourin_tool_zh_CN', zh_CN.data)
 Kourin_tool_zh_HANS = TranslationHelper('Kourin_tool_zh_HANS', zh_CN.data, lang='zh_HANS')
-from .operators.origin import reg_origin,unreg_origin
-from .operators.transfer import reg_trans,unreg_trans
-from .operators.color_selector import reg_color_selector,unreg_color_selector
-# from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
-from .panels.AddonPanels import reg_menu,unreg_menu
+if is_pyside6_installed():
+    print(1,is_pyside6_installed())
+    from .operators.origin import reg_origin,unreg_origin
+    from .operators.transfer import reg_trans,unreg_trans
+    from .operators.color_selector import reg_color_selector,unreg_color_selector
+    # from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
+    from .panels.AddonPanels import reg_menu,unreg_menu
+    from .preference.AddonPreferences import reg_pref,unreg_pref
+    from .panels.main_button import main_button_register,main_button_unregister
+    def reg_all():
+        reg_origin()
+        reg_trans()
+        reg_color_selector()
+        reg_menu()
+        reg_pref()
+        add_properties(_addon_properties)
+    def unreg_all():
+        main_button_unregister()
+        remove_properties(_addon_properties)
+        unreg_origin()
+        unreg_trans()
+        unreg_color_selector()
+        unreg_menu()
+        unreg_pref()
+else:
+    print(2)
+    def reg_all():
+        pass
+    def unreg_all():
+        pass
 from .preference.AddonPreferences import reg_pref,unreg_pref
-from .panels.main_button import main_button_register,main_button_unregister
 def register():
-    main_button_register()
+    bpy.utils.register_class(InstallPysideOperator)
+    reg_pref()
+    # bpy.utils.register_class(MyAddonPreferences)
+    
+    # main_button_register()
     #翻译
     if bpy.app.version < (4, 0, 0):
         Kourin_tool_zh_CN.register()
     else:
         Kourin_tool_zh_CN.register()
         Kourin_tool_zh_HANS.register()
-    reg_origin()
-    reg_trans()
-    reg_color_selector()
+    reg_all()
+    # reg_origin()
+    # reg_trans()
+    # reg_color_selector()
     # reg_tool_vert()
-    reg_menu()
-    reg_pref()
+    # reg_menu()
+    # reg_pref()
     print("registering")
     # Register classes
 
-    add_properties(_addon_properties)
+    # add_properties(_addon_properties)
 
 
     print("{} addon is installed.".format(bl_info["name"]))
@@ -115,22 +178,23 @@ def register():
     keymaps = register_keymaps([keys[v] for v in keys])
 
 def unregister():
-    main_button_unregister()
+    # main_button_unregister()
     #翻译
     if bpy.app.version < (4, 0, 0):
         Kourin_tool_zh_CN.unregister()
     else:
         Kourin_tool_zh_CN.unregister()
         Kourin_tool_zh_HANS.unregister()
+    unreg_all()
     # Internationalization
     # unRegister classes
-    remove_properties(_addon_properties)
-    unreg_origin()
-    unreg_trans()
-    unreg_color_selector()
+    # remove_properties(_addon_properties)
+    # unreg_origin()
+    # unreg_trans()
+    # unreg_color_selector()
     # unreg_tool_vert()
-    unreg_menu()
-    unreg_pref()
+    # unreg_menu()
+    # unreg_pref()
     print("{} addon is uninstalled.".format(bl_info["name"]))
     global keymaps
     if keymaps:
