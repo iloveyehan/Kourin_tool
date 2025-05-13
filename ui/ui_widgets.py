@@ -74,8 +74,9 @@ class ListView(QtWidgets.QListView):
         super().mouseDoubleClickEvent(event)
 
 class ItemDelegate(QtWidgets.QStyledItemDelegate):
-    def __init__(self, parent=None, value_min=0.0, value_max=1.0):
+    def __init__(self, parent=None, parent_wg=None,value_min=0.0, value_max=1.0):
         super().__init__(parent)
+        self.obj=parent_wg.obj
         self.value_min = value_min  # 最小值
         self.value_max = value_max  # 最大值
     def calculate_regions(self, option):
@@ -118,7 +119,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             model.data(index, ListModel.NameRole)
         )
 
-        # 绘制数值（保留1位小数）
+        # 绘制数值（保留2位小数）
         painter.drawText(
             regions["value"],
             QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
@@ -134,7 +135,13 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         else:
             opt.state |= QtWidgets.QStyle.State_Off
         QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_CheckBox, opt, painter)
-
+    def setEditorData(self, editor, index):
+        if isinstance(editor, QtWidgets.QLineEdit):
+            field = editor.property("field")
+            if field == "name":
+                editor.setText(index.data(ListModel.NameRole))
+            elif field == "value":
+                editor.setText(f"{index.data(ListModel.ValueRole):.2f}")
     def createEditor(self, parent, option, index):
         list_view = self.parent()
         if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
@@ -149,10 +156,12 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             print(f'Creating name editor with data: {name_data}')  # 调试输出
             editor = QtWidgets.QLineEdit(parent)
             print('index.data(ListModel.NameRole)',index.data(ListModel.NameRole))
+            self.sk_name=index.data(ListModel.NameRole)
             editor.setText(index.data(ListModel.NameRole))
-            editor.setText(str(name_data))  # 强制转换为字符串
+            # editor.setText(str(name_data))  # 强制转换为字符串
             editor.selectAll()
             editor.setProperty("field", "name")
+            editor.setFocus(QtCore.Qt.OtherFocusReason)
             return editor
             
         # 数值编辑器
@@ -162,14 +171,15 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.setValidator(QtGui.QDoubleValidator(
                 -inf, 
                 inf, 
-                2,  # 允许1位小数
+                2,  # 允许2位小数
                 editor
             ))
             editor.setText(f"{index.data(ListModel.ValueRole):.2f}")
             editor.selectAll()
             editor.setProperty("field", "value")
+            editor.setFocus(QtCore.Qt.OtherFocusReason)
             return editor
-
+        
         return None
 
     def setModelData(self, editor, model, index):
@@ -177,6 +187,9 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             field = editor.property("field")
             if field == "name":
                 model.setData(index, editor.text(), ListModel.NameRole)
+                print('editor.text()',str(index.data(ListModel.NameRole)))
+                if self.obj is not None:
+                        self.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
             elif field == "value":
                 try:
                     raw_value = float(editor.text())
@@ -184,6 +197,8 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                     clamped_value = max(self.value_min, min(raw_value, self.value_max))
                     model.setData(index, clamped_value, ListModel.ValueRole)
                     print('clamped_value',clamped_value)
+                    if self.obj is not None:
+                        self.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
                 except ValueError:
                     pass
     def updateEditorGeometry(self, editor, option, index):

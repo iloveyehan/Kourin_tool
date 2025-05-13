@@ -49,17 +49,26 @@ qt_window = None
 last_window_pos=None
 def state_handlers(scene, depsgraph):
     obj = bpy.context.active_object
-    
+    if obj.data.shape_keys :
+        s_ks= obj.data.shape_keys.key_blocks
+        print('s_ks',s_ks is None)
     if  obj is not None and  obj.type =='MESH':
         #切换物体
         print(f"选中的物体: {obj.name}")
+        print(f"选中的物体: {obj.mio3sksync}")
+
         if qt_window is not None:
             col=obj.mio3sksync.syncs
+            # qt_window.s_ks=s_ks
+            qt_window.update_shape_keys(s_ks)
             if col is None:
                 qt_window.sync_col_combox.setCurrentIndex(-1)
+
             else:
-                qt_window.obj=obj
+                
                 qt_window.sync_col_combox.setCurrentText(f"{col.name}")  # 通过文本设置选中项
+            qt_window.obj=obj
+            qt_window.delegate.obj=obj
         #镜像提醒
         if (obj.mode in  ['SCULPT','EDIT']):
             print('模式',obj.mode)
@@ -229,6 +238,7 @@ class MyQtWindow(QWidget):
     def __init__(self,last_pos=None):
         super().__init__()
         self.obj=None
+        self.s_ks=None
         self.setWindowTitle("vrc panel")
         pos = last_pos or QCursor.pos() - QPoint(100, 0)
         self.move(pos)
@@ -314,8 +324,11 @@ class MyQtWindow(QWidget):
         
         
         # 提取集合名称，排除根集合
-        collection_names = [col.name for col in all_collections if col != root_collection]
+        collection_names = [col.name for col in all_collections]
         for col_name in collection_names:
+            if col_name=='Scene Collection':
+                self.sync_col_combox.addItem('')
+                continue
             self.sync_col_combox.addItem(col_name)
         # 设置 QCompleter
         completer = QCompleter(collection_names, self.sync_col_combox)
@@ -323,7 +336,8 @@ class MyQtWindow(QWidget):
         completer.setCompletionMode(QCompleter.PopupCompletion)  # 弹出补全
         completer.setCaseSensitivity(Qt.CaseInsensitive)  # 设置匹配对大小写不敏感
         self.sync_col_combox.setCompleter(completer)
-
+        # 连接槽函数
+        self.sync_col_combox.currentIndexChanged.connect(self.on_combobox_changed)
   
         sync_col_layout.addWidget(self.sync_col_label)
         sync_col_layout.addWidget(self.sync_col_combox)
@@ -333,21 +347,22 @@ class MyQtWindow(QWidget):
         # self.view.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         # self.view.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
         # self.view.setDefaultDropAction(Qt.MoveAction)
-
-        items = [Item(f"Item {i+1}", 0) for i in range(100)]
-    # 初始化组件
+        
+        # items = [Item(f"Item {i+1}", 0) for i in range(100)]
+        items=[]
+        # 初始化组件
         self.list_view = ListView()
-        model = ListModel(items)
-        delegate = ItemDelegate(self.list_view)
+        self.model = ListModel(items)
+        self.delegate = ItemDelegate(self.list_view,self)
         
         # 设置视图属性
-        self.list_view.setModel(model)
-        self.list_view.setItemDelegate(delegate)
+        self.list_view.setModel(self.model)
+        self.list_view.setItemDelegate(self.delegate)
         self.list_view.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         self.list_view.setStyleSheet("""
             QListView {
                 font-size: 14px;
-                background: #585858;
+                background: #2d2d2d;
                 color: white;
             }
             QLineEdit {
@@ -375,7 +390,14 @@ class MyQtWindow(QWidget):
         # 用于记录鼠标拖动时的初始位置
         self.dragging = False
         self.offset = QPoint()
-
+    def on_combobox_changed(self, index):
+        # 获取当前选中的文本
+        selected_text = self.sync_col_combox.currentText()
+        if selected_text !='':
+            self.obj.mio3sksync.syncs=bpy.data.collections[f'{selected_text}']
+        else:
+            self.obj.mio3sksync.syncs=None
+        # print(f"Selected item: {selected_text}")
     def mousePressEvent(self, event):
         # print(bpy.data.objects['Dress'].use_mesh_mirror_x)
         if event.button() == Qt.LeftButton:
@@ -405,7 +427,12 @@ class MyQtWindow(QWidget):
 
     def delete_unused_bones(self):
         bpy.app.timers.register(self.del_unused_bones_call)
-
+    def update_shape_keys(self, new_sks):
+        self.s_ks = new_sks
+        new_items = [Item(f"{sk.name}", sk.value) for sk in self.s_ks]
+        self.model.beginResetModel()
+        self.model._items = new_items
+        self.model.endResetModel()
         
     def del_unused_bones_call(self):
         obj = bpy.context.active_object
@@ -486,10 +513,9 @@ class ShowQtPanelOperator(bpy.types.Operator):
 
         # 显示主窗口
         if not qt_window or not qt_window.isVisible():
-            if last_window_pos is not None:
-                qt_window = MyQtWindow(last_window_pos)
-            else:
-                qt_window = MyQtWindow()
+
+            qt_window = MyQtWindow(last_window_pos)
+
             dark_stylesheet = """
                 QWidget {
                     background-color: #2d2d2d;
@@ -510,8 +536,9 @@ class ShowQtPanelOperator(bpy.types.Operator):
             """
             qt_app.setStyleSheet(dark_stylesheet)
             qt_window.show()
-
-
+        #刷新视图,更新deps
+        mesh = bpy.data.meshes.new("TempMesh")
+        bpy.data.meshes.remove(mesh)
         return {'FINISHED'}
 
 
