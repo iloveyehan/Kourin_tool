@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import bpy
-from bpy.props import StringProperty, IntProperty, BoolProperty
+from bpy.props import StringProperty, IntProperty, BoolProperty,FloatProperty
 from bpy.types import AddonPreferences
 from ..utils.registration import is_pyside6_installed
 from ..common.class_loader.auto_load import ClassAutoloader
@@ -34,6 +34,7 @@ class Kourin_toolTOOLSPreference(AddonPreferences):
         name="Boolean Config",
         default=False,
     )
+    modal_hud_scale: FloatProperty(name="HUD Scale", description="Scale of HUD elements", default=1, min=0.1)
 
     def draw(self, context: bpy.types.Context):
         layout = self.layout

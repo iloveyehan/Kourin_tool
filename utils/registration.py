@@ -52,7 +52,43 @@ import sys
 # 检测是否安装了 PySide6
 def is_pyside6_installed():
     try:
-        importlib.import_module("PySide6")
+        import PySide6
         return True
     except ImportError:
         return False
+from pathlib import Path
+def get_path():
+    # 获取当前文件的绝对路径，并返回其父目录的父目录
+    return Path(__file__).resolve().parent.parent
+def get_name():
+    path = get_path()
+    if 'extensions' in str(path):
+        # 如果路径中包含 'extensions'，返回 'bl_ext.user_default.' + 父目录名称
+        return f'bl_ext.user_default.{path.name}'
+    else:
+        # 否则返回父目录名称
+        return path.name
+def get_prefs():
+    return bpy.context.preferences.addons[get_name()].preferences
+
+def get_addon(addon, debug=False):
+    import addon_utils
+
+    for mod in addon_utils.modules():
+        name = mod.bl_info["name"]
+        version = mod.bl_info.get("version", None)
+        foldername = mod.__name__
+        path = mod.__file__
+        enabled = addon_utils.check(foldername)[1]
+
+        if name == addon:
+            if debug:
+                print(name)
+                print("  enabled:", enabled)
+                print("  folder name:", foldername)
+                print("  version:", version)
+                print("  path:", path)
+                print()
+
+            return enabled, foldername, version, path
+    return False, None, None, None

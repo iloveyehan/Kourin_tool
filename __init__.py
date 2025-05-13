@@ -52,6 +52,7 @@ class InstallPysideOperator(Operator):
             import pip
             # 安装Pyside6库
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyside6"])
+            # subprocess.check_call([sys.executable, "-m", "pip", "install", "PySide6-Fluent-Widgets[full]","-i","https://pypi.org/simple/"])
             self.report({'INFO'}, "Pyside6 installed successfully.")
         except Exception as e:
             self.report({'ERROR'}, str(e))
@@ -121,25 +122,35 @@ if is_pyside6_installed():
     from .operators.origin import reg_origin,unreg_origin
     from .operators.transfer import reg_trans,unreg_trans
     from .operators.color_selector import reg_color_selector,unreg_color_selector
+    from .operators.vrc_bone_ops import reg_vrc_bone_ops,unreg_vrc_bone_ops
     # from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
     from .panels.AddonPanels import reg_menu,unreg_menu
     from .preference.AddonPreferences import reg_pref,unreg_pref
     from .panels.main_button import main_button_register,main_button_unregister
+    from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
+    from .operators.draw import reg_draw_info,unreg_draw_info
     def reg_all():
+        reg_draw_info()
         reg_origin()
+        main_button_register()
+        reg_vrc_bone_ops()
         reg_trans()
         reg_color_selector()
         reg_menu()
         reg_pref()
+        reg_ui_vrc_panel()
         add_properties(_addon_properties)
     def unreg_all():
         main_button_unregister()
         remove_properties(_addon_properties)
+        unreg_ui_vrc_panel()
         unreg_origin()
         unreg_trans()
+        unreg_vrc_bone_ops()
         unreg_color_selector()
         unreg_menu()
         unreg_pref()
+        unreg_draw_info()
 else:
     print(2)
     def reg_all():
@@ -179,6 +190,7 @@ def register():
 
 def unregister():
     # main_button_unregister()
+    bpy.utils.unregister_class(InstallPysideOperator)
     #翻译
     if bpy.app.version < (4, 0, 0):
         Kourin_tool_zh_CN.unregister()
