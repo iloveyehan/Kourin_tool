@@ -57,18 +57,18 @@ def state_handlers(scene, depsgraph):
         print(f"选中的物体: {obj.name}")
         print(f"选中的物体: {obj.mio3sksync}")
 
-        if qt_window is not None:
-            col=obj.mio3sksync.syncs
-            # qt_window.s_ks=s_ks
-            qt_window.update_shape_keys(s_ks)
-            if col is None:
-                qt_window.sync_col_combox.setCurrentIndex(-1)
+        # if qt_window is not None:
+        #     col=obj.mio3sksync.syncs
+        #     # qt_window.s_ks=s_ks
+        #     qt_window.update_shape_keys(s_ks)
+        #     if col is None:
+        #         qt_window.sync_col_combox.setCurrentIndex(-1)
 
-            else:
+        #     else:
                 
-                qt_window.sync_col_combox.setCurrentText(f"{col.name}")  # 通过文本设置选中项
-            qt_window.obj=obj
-            qt_window.delegate.obj=obj
+        #         qt_window.sync_col_combox.setCurrentText(f"{col.name}")  # 通过文本设置选中项
+        #     qt_window.obj=obj
+        #     qt_window.delegate.obj=obj
         #镜像提醒
         if (obj.mode in  ['SCULPT','EDIT']):
             print('模式',obj.mode)
@@ -352,6 +352,7 @@ class MyQtWindow(QWidget):
         items=[]
         # 初始化组件
         self.list_view = ListView()
+        # self.list_view.viewport().setMouseTracking(True)
         self.model = ListModel(items)
         self.delegate = ItemDelegate(self.list_view,self)
         
@@ -429,6 +430,8 @@ class MyQtWindow(QWidget):
         bpy.app.timers.register(self.del_unused_bones_call)
     def update_shape_keys(self, new_sks):
         self.s_ks = new_sks
+        # if len(self.s_ks)==len(new_sks):
+        #     return
         new_items = [Item(f"{sk.name}", sk.value) for sk in self.s_ks]
         self.model.beginResetModel()
         self.model._items = new_items

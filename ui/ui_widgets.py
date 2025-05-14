@@ -74,11 +74,19 @@ class ListView(QtWidgets.QListView):
         super().mouseDoubleClickEvent(event)
 
 class ItemDelegate(QtWidgets.QStyledItemDelegate):
-    def __init__(self, parent=None, parent_wg=None,value_min=0.0, value_max=1.0):
+    # DRAG_ROLE       = QtCore.Qt.UserRole + 99
+    def __init__(self, parent=None, parent_wg=None,value_min=0.0, value_max=1.0,sensitivity=0.005):
         super().__init__(parent)
         self.obj=parent_wg.obj
         self.value_min = value_min  # 最小值
         self.value_max = value_max  # 最大值
+        # 每像素数值增量
+        self.sensitivity = sensitivity
+
+        # 拖拽状态
+        self._dragging = False
+        self._drag_start_x = 0
+        self._drag_start_val = 0.0
     def calculate_regions(self, option):
         """区域计算方法，必须接受QStyleOptionViewItem参数"""
         total_width = option.rect.width() - 40
@@ -142,6 +150,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 editor.setText(index.data(ListModel.NameRole))
             elif field == "value":
                 editor.setText(f"{index.data(ListModel.ValueRole):.2f}")
+            editor.setFocus(QtCore.Qt.OtherFocusReason)
     def createEditor(self, parent, option, index):
         list_view = self.parent()
         if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
@@ -178,6 +187,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.selectAll()
             editor.setProperty("field", "value")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
+            
             return editor
         
         return None
@@ -190,6 +200,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 print('editor.text()',str(index.data(ListModel.NameRole)))
                 if self.obj is not None:
                         self.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
+                
             elif field == "value":
                 try:
                     raw_value = float(editor.text())
@@ -201,6 +212,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                         self.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
                 except ValueError:
                     pass
+            editor.setFocus(QtCore.Qt.OtherFocusReason)
     def updateEditorGeometry(self, editor, option, index):
         regions = self.calculate_regions(option)
         if editor.property("field") == "name":
