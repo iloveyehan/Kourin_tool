@@ -52,7 +52,7 @@ import sys
 # 检测是否安装了 PySide6
 def is_pyside6_installed():
     try:
-        import PySide6
+        import PyQt6
         return True
     except ImportError:
         return False
