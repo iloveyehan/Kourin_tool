@@ -27,17 +27,17 @@ def download_and_install(remote):
     # 直接覆盖目标目录中的文件
     shutil.copytree(source_dir, addon_path, dirs_exist_ok=True,ignore=ignore_git)
 def get_remote_version():
-    url = "https://raw.githubusercontent.com/iloveyehan/cupcko-blender-tool/refs/heads/main/version.json"
+    url = "https://raw.githubusercontent.com/iloveyehan/Kourin_tool/refs/heads/main/version.json"
     with urllib.request.urlopen(url) as resp:
         data = json.load(resp)
     return data  # 返回 dict，包含 version、download_url 等
 
 def get_local_version():
-    addon_module = importlib.import_module('cupcko-blender-tool')
+    addon_module = importlib.import_module('Kourin_tool')
     version = addon_module.bl_info.get("version", (0, 0, 0))
     return str(version)
 class CheckUpdateOperator(bpy.types.Operator):
-    bl_idname = "cupcko.check_update"
+    bl_idname = "kourin.check_update"
     bl_label = "检查更新"
 
     def execute(self, context):

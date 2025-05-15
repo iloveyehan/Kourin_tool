@@ -12,6 +12,7 @@ from bpy_types import Operator
 from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_installed
 from .panels.AddonPanels import AriEdgeSmoothSettings,AriTransferPositionSettings
 from .reg import keys
+from .update import CheckUpdateOperator
 from . import zh_CN
 # Add-on info
 bl_info = {
@@ -160,6 +161,7 @@ else:
 from .preference.AddonPreferences import reg_pref,unreg_pref
 def register():
     bpy.utils.register_class(InstallPysideOperator)
+    bpy.utils.register_class(CheckUpdateOperator)
     reg_pref()
     # bpy.utils.register_class(MyAddonPreferences)
     
@@ -191,6 +193,7 @@ def register():
 def unregister():
     # main_button_unregister()
     bpy.utils.unregister_class(InstallPysideOperator)
+    bpy.utils.unregister_class(CheckUpdateOperator)
     #翻译
     if bpy.app.version < (4, 0, 0):
         Kourin_tool_zh_CN.unregister()
