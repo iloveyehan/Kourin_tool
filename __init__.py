@@ -18,7 +18,7 @@ bl_info = {
     "name": "Kourin_tool",
     "author": "[You name]",
     "blender": (3, 5, 0),
-    "version": (0, 0, 1),
+    "version": (1, 0, 1),
     "description": "This is a template for building addons",
     "warning": "",
     "doc_url": "[documentation url]",
