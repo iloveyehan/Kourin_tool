@@ -2,15 +2,30 @@ import ctypes
 from math import inf
 from pathlib import Path
 import sys
+from functools import partial
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QByteArray
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout,QMenu
 from PySide6.QtGui import QKeyEvent, QCursor,QIcon,QPixmap
 from time import time
-
+qt_app    = None
+qt_window = None
+last_window_pos=None
 import bpy
+def on_shape_key_index_change(qt_window_widget=None):
+    if qt_window_widget is None:
+        global qt_window
+        qt_window_widget=qt_window
+    obj = bpy.context.view_layer.objects.active
+    print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
+    if qt_window_widget is not None:
+        index=qt_window_widget.model.index((obj.active_shape_key_index))
+        # print(qt_window.list_view.curr)
+        qt_window_widget.list_view.setCurrentIndex(index)
+        print('设置qt listview激活项',obj.active_shape_key_index)
+    return None
 def refocus_blender_window():
-    print('焦点重回blender')
+    # print('焦点重回blender')
     blender_hwnd = ctypes.windll.user32.FindWindowW("GHOST_WindowClass", None)
     if blender_hwnd:
         # 强制将焦点切回 Blender
@@ -38,8 +53,9 @@ def icon_from_dat(filename: str) -> QIcon:
     return QIcon(pixmap)
 class MenuButton(QPushButton):
     def __init__(self,parent = None,text='',icon_path=None,size=(20,20)):
-        super(MenuButton,self).__init__(parent)
+        super().__init__(parent)
         self.setText(f"{text}")
+        self.parent_wd=parent
         self.icon_path=icon_path
         self.icon_size=size
         self.setStyleSheet("""
@@ -74,77 +90,72 @@ class MenuButton(QPushButton):
         self.createContextMenu()  
  
     def createContextMenu(self):  
-        # 创建右键菜单 
-        # 必须将ContextMenuPolicy设置为Qt.CustomContextMenu  
-        # 否则无法使用customContextMenuRequested信号  
-        # self.setContextMenuPolicy(Qt.CustomContextMenu)  
-        # self.customContextMenuRequested.connect(self.showContextMenu) 
-         
+
         # 创建QMenu
         self.contextMenu = QMenu(self)  
         # self.contextMenu.setIconVisibleInMenu(False)
         for name in self.icon_dict:
             self.contextMenu.addAction(name)  
-        # self.actionA = self.contextMenu.addAction('混合后的新形态')  
-        # self.actionB = self.contextMenu.addAction('镜像形态键')  
-        # self.actionC = self.contextMenu.addAction('镜像形态键(拓扑)') 
-
         for action in self.contextMenu.actions():
             action.setData(self.icon_dict[action.text()][0])
             action.triggered.connect(self.actionHandler)
             icon_path=self.icon_dict[action.text()][1]
-            print('icon路径',icon_path)
+            # print('icon路径',icon_path)
             if icon_path !='':
                 my_icon = icon_from_dat(icon_path)
                 action.setIcon(my_icon)
     def handle_NewShapeFromMix(self):
         bpy.ops.object.shape_key_add(from_mix=True)
-        return None  # 只执行一次
+
     def handle_Mirror(self):
         bpy.ops.object.shape_key_mirror(use_topology=False)
-        return None  # 只执行一次
+
     def handle_MirrorTopo(self):
         bpy.ops.object.shape_key_mirror(use_topology=True)
-        return None  # 只执行一次
+
     def handle_JoinAs(self):
         bpy.ops.object.join_shapes()
-        return None  # 只执行一次
+
     def handle_Trans(self):
         bpy.ops.object.shape_key_transfer()
-        return None  # 只执行一次
+
     def handle_DelteAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
-        return None  # 只执行一次
+
     def handle_ApplyAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-        return None  # 只执行一次
+        # print(123)
     def handle_Lock(self):
         bpy.ops.object.shape_key_lock(action='LOCK')
-        return None  # 只执行一次
+
     def handle_Unlock(self):
         bpy.ops.object.shape_key_lock(action='UNLOCK')
-        return None  # 只执行一次
+
     def handle_MoveToTop(self):
         bpy.ops.object.shape_key_move(type='TOP')
-        return None  # 只执行一次
+
     def handle_MoveToBottom(self):
         bpy.ops.object.shape_key_move(type='BOTTOM')
-        return None  # 只执行一次
+
     def handle_ApplyToBasis(self):
         bpy.ops.cats_shapekey.shape_key_to_basis()
-        return None  # 只执行一次
+
     def handle_RemoveUnuse(self):
         bpy.ops.cats_shapekey.shape_key_prune()
-        return None  # 只执行一次
+
     def actionHandler(self):  
+        print('actionhandle')
         name = self.sender().data()
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(func)
+        bpy.app.timers.register(self.parent_wd.update_shape_keys)
+        bpy.app.timers.register(partial(on_shape_key_index_change,self.parent_wd))
+
     def mousePressEvent(self, event):
         # 如果是左键点击，显示菜单
         if event.button() == Qt.LeftButton:
-            print("左键点击，显示菜单")
+            # print("左键点击，显示菜单")
             self.contextMenu.exec_(QCursor.pos())
         # 调用父类的 mousePressEvent，确保按钮的默认行为仍然有效
         QPushButton.mousePressEvent(self, event)
@@ -296,7 +307,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_CheckBox, opt, painter)
         # print('绘图事件',time()-a)
     def setEditorData(self, editor, index):
-        print('setEditorData')
+        # print('setEditorData')
         if isinstance(editor, QtWidgets.QLineEdit):
             field = editor.property("field")
             if field == "name":
@@ -305,7 +316,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 editor.setText(f"{index.data(ListModel.ValueRole):.2f}")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
     def createEditor(self, parent, option, index):
-        print('createEditor')
+        # print('createEditor')
         a=time()
         list_view = self.parent()
         if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
@@ -317,16 +328,16 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         # 名称编辑器
         if regions["name"].contains(click_pos):
             name_data = index.data(ListModel.NameRole)
-            print(f'Creating name editor with data: {name_data}')  # 调试输出
+            # print(f'Creating name editor with data: {name_data}')  # 调试输出
             editor = QtWidgets.QLineEdit(parent)
-            print('index.data(ListModel.NameRole)',index.data(ListModel.NameRole))
+            # print('index.data(ListModel.NameRole)',index.data(ListModel.NameRole))
             self.sk_name=index.data(ListModel.NameRole)
             editor.setText(index.data(ListModel.NameRole))
             # editor.setText(str(name_data))  # 强制转换为字符串
             editor.selectAll()
             editor.setProperty("field", "name")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
-            print('点击list view name',time()-a)
+            # print('点击list view name',time()-a)
             return editor
             
         # 数值编辑器
@@ -343,18 +354,18 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.selectAll()
             editor.setProperty("field", "value")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
-            print('点击list view value',time()-a)
+            # print('点击list view value',time()-a)
             return editor
-        print('点击list view ',time()-a)
+        # print('点击list view ',time()-a)
         return None
 
     def setModelData(self, editor, model, index):
-        print('setModelData')
+        # print('setModelData')
         if isinstance(editor, QtWidgets.QLineEdit):
             field = editor.property("field")
             if field == "name":
                 model.setData(index, editor.text(), ListModel.NameRole)
-                print('editor.text()',str(index.data(ListModel.NameRole)))
+                # print('editor.text()',str(index.data(ListModel.NameRole)))
                 if self.obj is not None:
                         self.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
                 
@@ -364,14 +375,14 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                     # 二次范围验证确保数据正确性
                     clamped_value = max(self.value_min, min(raw_value, self.value_max))
                     model.setData(index, clamped_value, ListModel.ValueRole)
-                    print('clamped_value',clamped_value)
+                    # print('clamped_value',clamped_value)
                     if self.obj is not None:
                         self.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
                 except ValueError:
                     pass
             editor.setFocus(QtCore.Qt.OtherFocusReason)
     def updateEditorGeometry(self, editor, option, index):
-        print('updateEditorGeometry')
+        # print('updateEditorGeometry')
         regions = self.calculate_regions(option)
         if editor.property("field") == "name":
             editor.setGeometry(regions["name"])
@@ -379,7 +390,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.setGeometry(regions["value"])
 
     def editorEvent(self, event, model, option, index):
-        print('editorEvent')
+        # print('editorEvent')
         if event.type() == QtCore.QEvent.MouseButtonRelease:
             regions = self.calculate_regions(option)
             if regions["checkbox"].contains(event.pos()):

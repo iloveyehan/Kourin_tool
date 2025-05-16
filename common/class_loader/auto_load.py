@@ -36,11 +36,11 @@ class ClassAutoloader():
         # notice here, the path root is the root of the project
 
         # self.modules = get_all_submodules(self.path)
-        print('self.path',self.path.stem,str(self.path.parent))
+        # print('self.path',self.path.stem,str(self.path.parent))
         self.modules = [importlib.import_module('.'+self.path.parent.name+'.'+self.path.stem,'Kourin_tool')]
         # self.modules = load_module_from_file(str(self.path))
-        print('self.path', self.path)
-        print('self.modules', self.modules)
+        # print('self.path', self.path)
+        # print('self.modules', self.modules)
         self.ordered_classes = get_ordered_classes_to_register(self.modules)
         self.frame_work_classes = get_framework_classes(self.modules)
 
@@ -53,7 +53,7 @@ class ClassAutoloader():
             # 将路径转换为字符串并替换 / 为 .
             result_str = '.'+str(result_path).replace("/", ".").replace("\\", ".")
         except ValueError:
-            print(f"路径中不包含'Kourin_tool'")
+            # print(f"路径中不包含'Kourin_tool'")
             result_str=''
         return result_str
     def register(self):

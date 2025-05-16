@@ -52,6 +52,8 @@ class Kourin_toolTOOLSPreference(AddonPreferences):
         else:
             # 如果已安装 PySide6，显示正常设置
             layout.label(text="PySide6 已安装，插件功能可用。")
+        row2 = layout.row(align=True)
+        row2.operator("kourin.check_update", text="检查更新")
 # class MyAddonPreferences(bpy.types.AddonPreferences):
 #     bl_idname = 'Kourin_tool.pyside6'
 #     def draw(self, context):

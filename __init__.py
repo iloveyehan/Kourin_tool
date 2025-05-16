@@ -12,7 +12,7 @@ from bpy_types import Operator
 from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_installed
 from .panels.AddonPanels import AriEdgeSmoothSettings,AriTransferPositionSettings
 from .reg import keys
-from .update import CheckUpdateOperator
+from .update import KourinCheckUpdateOperator
 from . import zh_CN
 # Add-on info
 bl_info = {
@@ -119,7 +119,7 @@ def unreg_all():
 Kourin_tool_zh_CN = TranslationHelper('Kourin_tool_zh_CN', zh_CN.data)
 Kourin_tool_zh_HANS = TranslationHelper('Kourin_tool_zh_HANS', zh_CN.data, lang='zh_HANS')
 if is_pyside6_installed():
-    print(1,is_pyside6_installed())
+    # print(1,is_pyside6_installed())
     from .operators.origin import reg_origin,unreg_origin
     from .operators.transfer import reg_trans,unreg_trans
     from .operators.color_selector import reg_color_selector,unreg_color_selector
@@ -153,7 +153,7 @@ if is_pyside6_installed():
         unreg_pref()
         unreg_draw_info()
 else:
-    print(2)
+    # print(2)
     def reg_all():
         pass
     def unreg_all():
@@ -161,7 +161,7 @@ else:
 from .preference.AddonPreferences import reg_pref,unreg_pref
 def register():
     bpy.utils.register_class(InstallPysideOperator)
-    bpy.utils.register_class(CheckUpdateOperator)
+    bpy.utils.register_class(KourinCheckUpdateOperator)
     reg_pref()
     # bpy.utils.register_class(MyAddonPreferences)
     
@@ -179,21 +179,21 @@ def register():
     # reg_tool_vert()
     # reg_menu()
     # reg_pref()
-    print("registering")
+    # print("registering")
     # Register classes
 
     # add_properties(_addon_properties)
 
 
-    print("{} addon is installed.".format(bl_info["name"]))
+    # print("{} addon is installed.".format(bl_info["name"]))
     global keymaps
-    print([keys[v] for v in keys])
+    # print([keys[v] for v in keys])
     keymaps = register_keymaps([keys[v] for v in keys])
 
 def unregister():
     # main_button_unregister()
     bpy.utils.unregister_class(InstallPysideOperator)
-    bpy.utils.unregister_class(CheckUpdateOperator)
+    bpy.utils.unregister_class(KourinCheckUpdateOperator)
     #翻译
     if bpy.app.version < (4, 0, 0):
         Kourin_tool_zh_CN.unregister()
@@ -210,7 +210,7 @@ def unregister():
     # unreg_tool_vert()
     # unreg_menu()
     # unreg_pref()
-    print("{} addon is uninstalled.".format(bl_info["name"]))
+    # print("{} addon is uninstalled.".format(bl_info["name"]))
     global keymaps
     if keymaps:
         unregister_keymaps(keymaps)

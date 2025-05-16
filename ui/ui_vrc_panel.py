@@ -13,7 +13,8 @@ from PySide6.QtWidgets import QApplication
 from PySide6 import QtWidgets
 from ctypes import wintypes
 from pathlib import Path
-from .ui_widgets import  Item, ItemDelegate, ListModel, ListView, icon_from_dat,MenuButton, refocus_blender_window
+from .ui_widgets import qt_app,qt_window,last_window_pos
+from .ui_widgets import  Item, ItemDelegate, ListModel, ListView, icon_from_dat,MenuButton, on_shape_key_index_change, refocus_blender_window
 from ..common.class_loader.auto_load import ClassAutoloader
 ui_vrc_panel=ClassAutoloader(Path(__file__))
 
@@ -48,9 +49,7 @@ ctypes.windll.user32.SetWindowPos.argtypes = [
 ]
 
 # ========= 全局引用 ===========
-qt_app    = None
-qt_window = None
-last_window_pos=None
+
 
 
 def register_msgbus():
@@ -85,22 +84,22 @@ def register_msgbus():
         options={'PERSISTENT'},
     )
     print("消息总线订阅已注册。")
-def on_shape_key_index_change(*args):
-    global qt_window
-    obj = bpy.context.view_layer.objects.active
+# def on_shape_key_index_change(*args):
+#     global qt_window
+#     obj = bpy.context.view_layer.objects.active
     
-    if qt_window is not None:
-        index=qt_window.model.index((obj.active_shape_key_index))
-        qt_window.list_view.setCurrentIndex(index)
+#     if qt_window is not None:
+#         index=qt_window.model.index((obj.active_shape_key_index))
+#         qt_window.list_view.setCurrentIndex(index)
 def on_active_or_mode_change():
-    print('触发回调')
+    print('qt_window',qt_window,'物体切换')
     if qt_window is not None:
         obj=bpy.context.view_layer.objects.active
         qt_window.obj = obj
         if obj.type=='MESH':
             
             col=obj.mio3sksync.syncs
-            print('激活物体',qt_window.obj)
+            # print('激活物体',qt_window.obj)
             if obj.data.shape_keys :
                 s_ks= obj.data.shape_keys.key_blocks
                 
@@ -123,35 +122,23 @@ def on_active_or_mode_change():
 
 
   
-def on_mode_change():
-    obj = bpy.context.active_object
-    print("[模式变更] 当前模式为：", obj.mode if obj else "无物体")
-def mirror_x_changed(*args):
+
+def mirror_x_changed(*args):    
+    print('qt_window',qt_window)
     if qt_window is not None:
         obj = bpy.context.view_layer.objects.active
-        print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
+        # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
         if (obj.mode in  ['SCULPT','EDIT']):
-            print('模式',obj.mode)
+            # print('模式',obj.mode)
             if not getattr(obj, 'use_mesh_mirror_x', True):
-                # print('进入雕刻模式')
-                # if QApplication.instance() is None:
-                #     qt_app = QApplication(sys.argv)
-                # else:
-                #     qt_app = QApplication.instance()
-
-                # 只创建一次 toast
+  
                 warning_window = MirrorWarningWindow("打开镜像!!",parent=qt_window, duration=3000)
                 warning_window.show_centered_on_blender()
                 refocus_blender_window()
 def unregister_msgbus():
     bpy.msgbus.clear_by_owner(__name__)
     print("[Kourin]消息总线订阅已移除。")
-# def register_sculpt_warning_handler():
-#     if state_handlers not in bpy.app.handlers.depsgraph_update_post:
-#         bpy.app.handlers.depsgraph_update_post.append(state_handlers)
-# def unregister_sculpt_warning_handler():
-#     if state_handlers in bpy.app.handlers.depsgraph_update_post:
-#         bpy.app.handlers.depsgraph_update_post.remove(state_handlers)
+
 # 每次打开新文件时重新注册
 from bpy.app.handlers import persistent
 @persistent
@@ -324,20 +311,21 @@ class MyQtWindow(QWidget):
         # layout.setStretch(1,100)
         # 内容布局
         self.button = Button("","brush_data.svg")
-        self.button2 = Button("")
+        self.set_bone_display = Button("",'armature_data.svg')
+        self.set_bone_display.setProperty('bt_name','set_bone_display')
         self.button.setToolTip("选中骨架,移除所有没有权重的骨骼")
-        # self.button.setStyleSheet("""
-        #     QPushButton:pressed {
-        #         background-color: #bbbbbb;
-        #     }
-        # """)
-        my_icon = icon_from_dat("brush_data.svg")
-        self.button.setIcon(my_icon)
-        self.button.setIconSize(QSize(28, 28))
-        self.button.setFixedSize(28, 28)
+        self.set_bone_display.setToolTip("设置棍型骨架,其他衣服骨骼设置为八面锥")
         self.button.clicked.connect(self.delete_unused_bones)
+        self.set_bone_display.clicked.connect(self.button_handler)
+        self.show_bone_name = Button('','group_bone.svg')
+        self.show_bone_name.setToolTip("骨骼名称显示切换")
+        self.show_bone_name.setCheckable(True)
+        # self.show_bone_name.setObjectName(u"pushButton_3")
+        self.show_bone_name.setProperty('bt_name','show_bone_name')
+        self.show_bone_name.toggled.connect(self.button_check_handler)  # 监听状态变化
         main_layout.addWidget(self.button)
-        main_layout.addWidget(self.button2)
+        main_layout.addWidget(self.set_bone_display)
+        main_layout.addWidget(self.show_bone_name)
         
         # self.label = QLabel("test")
         # main_layout.addWidget(self.label)
@@ -345,14 +333,16 @@ class MyQtWindow(QWidget):
         # self.horizontalLayout_2.setSpacing(0)
         # self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.pushButton_2 = Button('')
+        self.pushButton_2 = Button('','material.svg')
+        self.pushButton_2.setProperty('bt_name','set_viewport_display_random')
         self.pushButton_2.setObjectName(u"pushButton_2")
-
+        self.pushButton_2.clicked.connect(self.button_handler)
         self.horizontalLayout_2.addWidget(self.pushButton_2)
 
         self.pushButton_3 = Button('')
         self.pushButton_3.setObjectName(u"pushButton_3")
-
+        # self.pushButton_3.setProperty('bt_name','set_viewport_display_random')
+        # self.pushButton_3.toggled.connect(self.button_check_handler)  # 监听状态变化
         self.horizontalLayout_2.addWidget(self.pushButton_3)
 
         self.pushButton_4 = Button('')
@@ -550,49 +540,72 @@ class MyQtWindow(QWidget):
                     color: black;
                 }
             """)
+    def handle_set_bone_display(self): 
+        bpy.ops.kourin.set_bone_display()
+    def handle_show_bone_name(self,checked): 
+        print('show_bone_name')
+        bpy.ops.kourin.show_bone_name(t_f=checked)
+    def handle_set_viewport_display_random(self): 
+        bpy.ops.kourin.set_viewport_display_random()
     def handle_add_shape_key(self):
         bpy.ops.object.shape_key_add(from_mix=False)
         self.update_shape_keys()
+        return None
     def handle_add_shape_key_here(self):
         bpy.ops.mio3sk.add_key_current()
         self.update_shape_keys()
+        return None
     def handle_rm_shape_key(self):
         bpy.ops.object.shape_key_remove(all=False)
         self.update_shape_keys()
+        return None
     def handle_up_shape_key(self):
         bpy.ops.object.shape_key_move(type='UP')
         self.update_shape_keys()
+        return None
     def handle_dm_shape_key(self):
         bpy.ops.object.shape_key_move(type='DOWN')
         self.update_shape_keys()
+        return None
     def handle_set_0(self):
         bpy.ops.object.shape_key_clear()
         self.update_shape_keys()
+        return None
     def button_handler(self):
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(func)
+        # print('name1',name)
+        # if name in ['up_shape_key','dm_shape_key']:
+        # bpy.app.timers.register(on_shape_key_index_change)
+        # print('name2',name)
+        # 显示提示窗口
+        # toast = ToastWindow("操作已完成", parent=self)
+        # toast.show_at_center_of(self)
+        # refocus_blender_window()
     def button_check_handler(self,checked):
+        print('show_bone_name1')
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(partial(func, checked))
+    
     def on_item_clicked(self, index):
         import time
         a=time.time()
         item_text = self.model.data(index, Qt.DisplayRole)
-        print(f"点击了项: {item_text}")
+        # print(f"点击了项: {item_text}")
         # 查找形态键的索引
         index = self.obj.data.shape_keys.key_blocks.find(item_text)
         # 设置激活的形态键
         if index != -1:
             self.obj.active_shape_key_index = index
-        print('点击选中item耗时',time.time()-a)
+        # print('点击选中item耗时',time.time()-a)
     def on_combobox_changed(self, index):
-        print('更换同步集合')
+        # print('更换同步集合')
         # 获取当前选中的文本
         selected_text = self.sync_col_combox.currentText()
         if selected_text !='':
@@ -630,7 +643,7 @@ class MyQtWindow(QWidget):
     def delete_unused_bones(self):
         bpy.app.timers.register(self.del_unused_bones_call)
     def update_shape_keys(self, new_sks=None):
-        print('触发更新shapekey',self.obj)
+        # print('触发更新shapekey',self.obj)
 
         import time
         a=time.time()
@@ -638,11 +651,11 @@ class MyQtWindow(QWidget):
             
             if self.obj.data.shape_keys is not None:
                 self.s_ks = self.obj.data.shape_keys.key_blocks
-                print(len(self.s_ks))
+                # print(len(self.s_ks))
    
                 new_items = [Item(f"{sk.name}", sk.value) for sk in self.s_ks]
  
-                print(len(self.obj.data.shape_keys.key_blocks))
+                # print(len(self.obj.data.shape_keys.key_blocks))
             else:
                 new_items=[]
         else:
@@ -650,7 +663,8 @@ class MyQtWindow(QWidget):
         self.model.beginResetModel()
         self.model._items = new_items
         self.model.endResetModel()
-        print('刷新形态键耗时',time.time()-a)
+        bpy.app.timers.register(partial(on_shape_key_index_change,self))
+        # print('刷新形态键耗时',time.time()-a)
         
     def del_unused_bones_call(self):
         obj = bpy.context.active_object
@@ -659,7 +673,7 @@ class MyQtWindow(QWidget):
             toast.show_at_center_of(self)
             return
 
-        bpy.ops.armature.delete_unused_bones()
+        bpy.ops.kourin.delete_unused_bones()
         
         # 显示提示窗口
         toast = ToastWindow("操作已完成", parent=self)
@@ -693,7 +707,7 @@ class ToastWindow(QWidget):
         self.label.setStyleSheet("""
             QLabel {
                 color: white;
-                background-color: rgba(0, 0, 0, 0);
+                background-color: rgba(0, 0, 0, 20);
                 padding: 10px;
                 border-radius: 10px;
                 font-size: 16px;

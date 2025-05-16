@@ -36,7 +36,7 @@ def get_local_version():
     addon_module = importlib.import_module('Kourin_tool')
     version = addon_module.bl_info.get("version", (0, 0, 0))
     return str(version)
-class CheckUpdateOperator(bpy.types.Operator):
+class KourinCheckUpdateOperator(bpy.types.Operator):
     bl_idname = "kourin.check_update"
     bl_label = "检查更新"
 
