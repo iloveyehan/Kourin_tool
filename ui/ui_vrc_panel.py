@@ -13,9 +13,9 @@ from PySide6.QtWidgets import QApplication
 from PySide6 import QtWidgets
 from ctypes import wintypes
 from pathlib import Path
-from .ui_widgets import qt_app,qt_window,last_window_pos
-from .ui_widgets import  Item, ItemDelegate, ListModel, ListView, icon_from_dat,MenuButton, on_shape_key_index_change, refocus_blender_window
+from .ui_widgets import  Item, ItemDelegate, ListModel, ListView, ResizableListView, icon_from_dat,MenuButton, refocus_blender_window
 from ..common.class_loader.auto_load import ClassAutoloader
+from ..test import CollapsibleWidget,CategoryTreeWidget
 ui_vrc_panel=ClassAutoloader(Path(__file__))
 
 def reg_ui_vrc_panel():
@@ -50,7 +50,9 @@ ctypes.windll.user32.SetWindowPos.argtypes = [
 
 # ========= 全局引用 ===========
 
-
+qt_app    = None
+qt_window = None
+last_window_pos=None
 
 def register_msgbus():
      # 监听“激活物体”变化：使用 LayerObjects.active 而非 WindowManager.active_object :contentReference[oaicite:0]{index=0}
@@ -84,13 +86,18 @@ def register_msgbus():
         options={'PERSISTENT'},
     )
     print("消息总线订阅已注册。")
-# def on_shape_key_index_change(*args):
-#     global qt_window
-#     obj = bpy.context.view_layer.objects.active
-    
-#     if qt_window is not None:
-#         index=qt_window.model.index((obj.active_shape_key_index))
-#         qt_window.list_view.setCurrentIndex(index)
+def on_shape_key_index_change(qt_window_widget=None):
+    if qt_window_widget is None:
+        global qt_window
+        qt_window_widget=qt_window
+    obj = bpy.context.view_layer.objects.active
+    print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
+    if qt_window_widget is not None:
+        index=qt_window_widget.model.index((obj.active_shape_key_index))
+        # print(qt_window.list_view.curr)
+        qt_window_widget.list_view.setCurrentIndex(index)
+        print('设置qt listview激活项',obj.active_shape_key_index)
+    return None
 def on_active_or_mode_change():
     print('qt_window',qt_window,'物体切换')
     if qt_window is not None:
@@ -101,11 +108,13 @@ def on_active_or_mode_change():
             col=obj.mio3sksync.syncs
             # print('激活物体',qt_window.obj)
             if obj.data.shape_keys :
+                qt_window.show_only_sk.setChecked(obj.show_only_shape_key)
                 s_ks= obj.data.shape_keys.key_blocks
                 
                 qt_window.s_ks=s_ks
                 qt_window.update_shape_keys(s_ks)
             else:
+                qt_window.show_only_sk.setChecked(False)
                 qt_window.s_ks=[]
                 qt_window.update_shape_keys([])
             if col is None:
@@ -124,7 +133,7 @@ def on_active_or_mode_change():
   
 
 def mirror_x_changed(*args):    
-    print('qt_window',qt_window)
+    print('qt_window',qt_window,bpy.context.view_layer.objects.active.name)
     if qt_window is not None:
         obj = bpy.context.view_layer.objects.active
         # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
@@ -135,6 +144,12 @@ def mirror_x_changed(*args):
                 warning_window = MirrorWarningWindow("打开镜像!!",parent=qt_window, duration=3000)
                 warning_window.show_centered_on_blender()
                 refocus_blender_window()
+    on_active_or_mode_change()
+
+        # index=qt_window.model.index((obj.active_shape_key_index))
+        # # print(qt_window.list_view.curr)
+        # qt_window.list_view.setCurrentIndex(index)
+        # print('设置qt listview激活项',obj.active_shape_key_index)
 def unregister_msgbus():
     bpy.msgbus.clear_by_owner(__name__)
     print("[Kourin]消息总线订阅已移除。")
@@ -284,6 +299,7 @@ class MyQtWindow(QWidget):
         self.move(pos)
         # self.setGeometry(mouse_pos.x()-100, mouse_pos.y(), 0, 0)  # 将窗口移动到鼠标位置
         self.adjustSize() 
+        self.setMinimumWidth(250) 
         # 主布局
         layout = QVBoxLayout()
         layout.setSpacing(3)
@@ -349,7 +365,10 @@ class MyQtWindow(QWidget):
         self.pushButton_4.setObjectName(u"pushButton_4")
 
         self.horizontalLayout_2.addWidget(self.pushButton_4)
+
+        
         sync_col_layout=QHBoxLayout()
+        
         def get_all_collections(collection):
             """递归获取所有集合"""
             all_collections = [collection]
@@ -361,6 +380,7 @@ class MyQtWindow(QWidget):
         self.show_only_sk.setProperty('bt_name','show_only_sk')
         self.show_only_sk.setCheckable(True)
         self.show_only_sk.toggled.connect(self.button_check_handler)  # 监听状态变化
+        # self.show_only_sk.setChecked()
         self.use_sk_edit = Button('','editmode_hlt.svg')
         self.use_sk_edit.setProperty('bt_name','use_sk_edit')
         self.use_sk_edit.setCheckable(True)
@@ -394,12 +414,13 @@ class MyQtWindow(QWidget):
         sync_col_layout.addWidget(self.show_only_sk)
         sync_col_layout.addWidget(self.use_sk_edit)
         sync_col_layout.addWidget(self.sync_col_combox)
-
+        
 
 
         items=[]
         # 初始化组件
-        self.list_view = ListView()
+        # self.list_view = ListView()
+        self.list_view = ResizableListView()
         # self.list_view.viewport().setMouseTracking(True)
         self.model = ListModel(items)
         self.delegate = ItemDelegate(self.list_view,self)
@@ -418,8 +439,8 @@ class MyQtWindow(QWidget):
         self.list_view.setItemDelegate(self.delegate)
         self.list_view.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         # 连接 clicked 信号到槽函数
-        self.list_view.clicked.connect(self.on_item_clicked)
-        self.list_view.setStyleSheet("""
+        self.list_view.list_view.clicked.connect(self.on_item_clicked)
+        self.list_view.list_view.setStyleSheet("""
             QListView {
                 font-size: 14px;
                 background: #2d2d2d;
@@ -484,15 +505,28 @@ class MyQtWindow(QWidget):
         shapekey_col_layout=QVBoxLayout()
         shapekey_col_layout.addLayout(sync_col_layout)
         shapekey_col_layout.addWidget(self.list_view)
-        shapekey_col_layout.addWidget(self.size_grip, 0, Qt.AlignRight | Qt.AlignBottom)
+        # shapekey_col_layout.addWidget(self.size_grip, 0, Qt.AlignRight | Qt.AlignBottom)
         # row_h = self.list_view.sizeHintForRow(0) or 200
         # self.resize(300, row_h * 5 + 4)  # +4 为上下边距预留
         # 初始尺寸，让它能显示约 5 行（根据你的 delegate/字体大小微调）
-        mio_layout=QHBoxLayout()
+        mio_layout=QHBoxLayout()  
+        collapsible_widget = CollapsibleWidget("Collapsible Section",mio_layout,self)
+        collapsible_menu=CategoryTreeWidget(self)
+        collapsible_menu.add_category(title="形态键", content_layout=mio_layout)
+        # collapsible_widget.set_content_layout(mio_layout)
         layout.addLayout(top_layout)
         layout.addLayout(main_layout)
         layout.addLayout(self.horizontalLayout_2)
-        layout.addLayout(mio_layout)
+        layout.addWidget(collapsible_menu)
+        # layout.addWidget(collapsible_widget)
+        layout.addStretch()
+        
+        weight=QVBoxLayout()
+        self.button15 = Button("","tria_up.svg",)
+        self.button15.setProperty('bt_name','up_shape_key')
+        weight.addWidget(self.button15)
+        layout.addLayout(weight)
+        # layout.addLayout(mio_layout)
         mio_layout.setSpacing(0)
         mio_layout.setContentsMargins(0, 0, 0, 0)
         mio_layout.addLayout(shapekey_col_layout)
@@ -577,14 +611,7 @@ class MyQtWindow(QWidget):
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(func)
-        # print('name1',name)
-        # if name in ['up_shape_key','dm_shape_key']:
-        # bpy.app.timers.register(on_shape_key_index_change)
-        # print('name2',name)
-        # 显示提示窗口
-        # toast = ToastWindow("操作已完成", parent=self)
-        # toast.show_at_center_of(self)
-        # refocus_blender_window()
+
     def button_check_handler(self,checked):
         print('show_bone_name1')
         name = self.sender().property('bt_name')
