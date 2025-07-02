@@ -130,11 +130,13 @@ if is_pyside6_installed():
     from .panels.main_button import main_button_register,main_button_unregister
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
     from .operators.draw import reg_draw_info,unreg_draw_info
+    from .operators.vertex_group import reg_vrc_vg_ops,unreg_vrc_vg_ops
     def reg_all():
+        reg_vrc_vg_ops()
+        reg_vrc_bone_ops()
         reg_draw_info()
         reg_origin()
         main_button_register()
-        reg_vrc_bone_ops()
         reg_trans()
         reg_color_selector()
         reg_menu()
@@ -142,6 +144,7 @@ if is_pyside6_installed():
         reg_ui_vrc_panel()
         add_properties(_addon_properties)
     def unreg_all():
+        unreg_vrc_vg_ops()
         main_button_unregister()
         remove_properties(_addon_properties)
         unreg_ui_vrc_panel()

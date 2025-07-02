@@ -386,6 +386,14 @@ class EmbeddedQtWidget(QWidget):
         # layout.addWidget(self.slider)
         # self.customColorPicker.raise_()  # 确保在最上层
         # self.customColorPicker.show()
+        self.label = QLabel("请输入多行内容：")
+        from PySide6.QtWidgets import QTextEdit
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlaceholderText("可输入多行文本")
+        self.text_edit.textChanged.connect(self.on_text_changed)
+
+        layout.addWidget(self.label)
+        layout.addWidget(self.text_edit)
         self.setLayout(layout)
         self.setWindowOpacity(1)
         self.update()
@@ -400,6 +408,8 @@ class EmbeddedQtWidget(QWidget):
         
         self.draw_start_pos = QPoint(0, 0)  # 默认绘制起点
         self.setMouseTracking(True)
+    def on_text_changed(self):
+        print("当前内容：", self.text_edit.toPlainText())
     def paintEvent(self, event: QPaintEvent) -> None:
         painter=QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)

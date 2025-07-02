@@ -6,14 +6,32 @@ import platform
 import sys
 import bpy
 from time import time
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout,QCompleter,QSizeGrip
+from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QEvent,QEventLoop
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout,QFrame, QPushButton, QLabel,QHBoxLayout,QCompleter,QSizeGrip,QToolBox
 from PySide6.QtGui import QWindow,QKeyEvent,QIcon
 from PySide6.QtWidgets import QApplication
 from PySide6 import QtWidgets
 from ctypes import wintypes
 from pathlib import Path
-from .ui_widgets import  Item, ItemDelegate, ListModel, ListView, ResizableListView, icon_from_dat,MenuButton, refocus_blender_window
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,QSpacerItem,QSizePolicy,QGroupBox,QGridLayout,QComboBox
+from PySide6.QtCore import QTimer, Qt, QPoint
+from PySide6.QtGui import QKeyEvent, QCursor
+from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtCore import QByteArray
+import os
+
+from ..utils.mio_sync_colsk import callback_show_only_shape_key, callback_update_shapekey, sync_active_shape_key
+
+from .ui_widgets import Button
+from .qt_load_icon import icon_from_dat
+from .qt_utils import refocus_blender_window
+from .qt_vertexgroup import QtVertexGroup
+from .qt_toastwindow import ToastWindow
+
+from .qt_preprocessing import PreprocesseWigdet
+
+from .qt_toolbox import ToolBox
+from .qt_shapekey import  Item, ItemDelegate, ListModel, ListView, Qt_shapekey, ResizableListView,MenuButton
 from ..common.class_loader.auto_load import ClassAutoloader
 from ..test import CollapsibleWidget,CategoryTreeWidget
 ui_vrc_panel=ClassAutoloader(Path(__file__))
@@ -85,6 +103,24 @@ def register_msgbus():
         notify=on_shape_key_index_change,
         options={'PERSISTENT'},
     )
+    bpy.msgbus.subscribe_rna(
+        key=(bpy.types.ShapeKey, "value"),
+        owner=__name__,
+        args=(),
+        notify=callback_update_shapekey,
+    )
+    bpy.msgbus.subscribe_rna(
+        key=(bpy.types.ShapeKey, "mute"),
+        owner=__name__,
+        args=(),
+        notify=callback_update_shapekey,
+    )
+    bpy.msgbus.subscribe_rna(
+        key=(bpy.types.Object, "show_only_shape_key"),
+        owner=__name__,
+        args=(),
+        notify=callback_show_only_shape_key,
+    )
     print("消息总线订阅已注册。")
 def on_shape_key_index_change(qt_window_widget=None):
     if qt_window_widget is None:
@@ -93,41 +129,58 @@ def on_shape_key_index_change(qt_window_widget=None):
     obj = bpy.context.view_layer.objects.active
     print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
     if qt_window_widget is not None:
-        index=qt_window_widget.model.index((obj.active_shape_key_index))
+        index=qt_window_widget.qt_shapekey.model.index((obj.active_shape_key_index))
         # print(qt_window.list_view.curr)
-        qt_window_widget.list_view.setCurrentIndex(index)
+        qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
         print('设置qt listview激活项',obj.active_shape_key_index)
+    sync_active_shape_key()
+    return None
+def on_vertex_group_index_change(qt_window_widget=None):
+    if qt_window_widget is None:
+        global qt_window
+        qt_window_widget=qt_window
+    obj = bpy.context.view_layer.objects.active
+    print(f'{qt_window_widget} {qt_window} vg index',obj.vertex_groups.active_index)
+    if qt_window_widget is not None:
+        index=qt_window_widget.qt_vertexgroup.model.index((obj.vertex_groups.active_index))
+        # print(qt_window.list_view.curr)
+        qt_window_widget.qt_vertexgroup.list_view.setCurrentIndex(index)
+        print('设置qt vg激活项',obj.vertex_groups)
     return None
 def on_active_or_mode_change():
+    from .qt_global import GlobalProperty as GP
     print('qt_window',qt_window,'物体切换')
     if qt_window is not None:
         obj=bpy.context.view_layer.objects.active
         qt_window.obj = obj
         if obj.type=='MESH':
-            
-            col=obj.mio3sksync.syncs
+            qt_window.qt_vertexgroup.refresh_vertex_groups()
+            try:
+                col=GP.get().obj_sync_col[obj.as_pointer()]
+            except:col=None
             # print('激活物体',qt_window.obj)
             if obj.data.shape_keys :
-                qt_window.show_only_sk.setChecked(obj.show_only_shape_key)
+                qt_window.qt_shapekey.show_only_sk.setChecked(obj.show_only_shape_key)
                 s_ks= obj.data.shape_keys.key_blocks
                 
                 qt_window.s_ks=s_ks
-                qt_window.update_shape_keys(s_ks)
+                qt_window.qt_shapekey.update_shape_keys(s_ks)
             else:
-                qt_window.show_only_sk.setChecked(False)
-                qt_window.s_ks=[]
-                qt_window.update_shape_keys([])
+                qt_window.qt_shapekey.show_only_sk.setChecked(False)
+                qt_window.qt_shapekey.s_ks=[]
+                qt_window.qt_shapekey.update_shape_keys([])
             if col is None:
-                qt_window.sync_col_combox.setCurrentIndex(-1)
+                qt_window.qt_shapekey.sync_col_combox.setCurrentIndex(-1)
 
             else:
                 
-                qt_window.sync_col_combox.setCurrentText(f"{col.name}")  # 通过文本设置选中项
+                qt_window.qt_shapekey.sync_col_combox.setCurrentText(f"{col.name}")  # 通过文本设置选中项
             # qt_window.obj=obj
-            qt_window.delegate.obj=obj
+            qt_window.qt_shapekey.delegate.obj=obj
+            qt_window.qt_shapekey.on_combobox_changed()
         else:
-            qt_window.s_ks=[]
-            qt_window.update_shape_keys([])
+            qt_window.qt_shapekey.s_ks=[]
+            qt_window.qt_shapekey.update_shape_keys([])
 
 
   
@@ -262,49 +315,41 @@ def update_window_state():
     # print(bpy.context.active_object)
     # QTimer.singleShot(10, update_window_state)
 # 定义一个PySide6窗口
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,QSpacerItem,QSizePolicy,QGroupBox,QGridLayout,QComboBox
-from PySide6.QtCore import QTimer, Qt, QPoint
-from PySide6.QtGui import QKeyEvent, QCursor
-from PySide6.QtGui import QPixmap, QIcon
-from PySide6.QtCore import QByteArray
-import os
-class Button(QPushButton):
-    def __init__(self,text,icon_path=None,size=(20,20)):
-        super().__init__()
-        self.setText(f"{text}")
-        self.setStyleSheet("""
-            Button:pressed {
-                background-color: #bbbbbb;
-            }
-            Button:focus {
-                outline: none;
-            }
-        """)
-        if icon_path is not None:
-            my_icon = icon_from_dat(icon_path)
-            self.setIcon(my_icon)
-            self.setIconSize(QSize(*size))
-            self.setFixedSize(*size)
+
+
 
 
 
 class MyQtWindow(QWidget):
-    def __init__(self,last_pos=None):
+    def __init__(self,hwnd,last_pos=None):
         super().__init__()
         self.obj=None
         self.s_ks=None
         self.b=0
         self.setWindowTitle("vrc panel")
         pos = last_pos or QCursor.pos() - QPoint(100, 0)
-        self.move(pos)
-        # self.setGeometry(mouse_pos.x()-100, mouse_pos.y(), 0, 0)  # 将窗口移动到鼠标位置
+        # Windows DPI处理
+        if platform.system() == "Windows":
+            self.setAttribute(Qt.WA_NativeWindow, True)
+        # 嵌入 Blender 主窗口（将传入的句柄转换为 QWindow 对象）
+        # blender_qwin = QWindow.fromWinId(hwnd)
+        # if blender_qwin.screen() is None:
+        #     raise RuntimeError("无效的父窗口")
+        # self.windowHandle().setParent(blender_qwin)
+        # blender_screen = blender_qwin.screen()
+        # self.windowHandle().setScreen(blender_screen)  
+        self.setWindowOpacity(0.99999)
+        self.setMouseTracking(True)
+
+        QCursor.pos()
         self.adjustSize() 
-        self.setMinimumWidth(250) 
+        # self.setMinimumWidth(250) 
+        self.setMinimumSize(250, 360)
+        self.toolbox=QToolBox()
         # 主布局
         layout = QVBoxLayout()
         layout.setSpacing(3)
         layout.setContentsMargins(3, 3, 3, 3)
-        
 
 
         self.close_button = Button("×")  # 关闭按钮
@@ -314,225 +359,40 @@ class MyQtWindow(QWidget):
 
         # 顶部 close 按钮 layout
         top_layout = QHBoxLayout()
-        # top_layout.setSpacing(0)
-        # top_layout.setContentsMargins(0, 0, 0, 0)
+
         top_layout.addStretch()
         top_layout.addWidget(self.close_button)
 
-        main_layout = QHBoxLayout()
-        # main_layout.setSpacing(0)
-        # main_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # layout.setStretch(0,1)
-        # layout.setStretch(1,100)
-        # 内容布局
-        self.button = Button("","brush_data.svg")
-        self.set_bone_display = Button("",'armature_data.svg')
-        self.set_bone_display.setProperty('bt_name','set_bone_display')
-        self.button.setToolTip("选中骨架,移除所有没有权重的骨骼")
-        self.set_bone_display.setToolTip("设置棍型骨架,其他衣服骨骼设置为八面锥")
-        self.button.clicked.connect(self.delete_unused_bones)
-        self.set_bone_display.clicked.connect(self.button_handler)
-        self.show_bone_name = Button('','group_bone.svg')
-        self.show_bone_name.setToolTip("骨骼名称显示切换")
-        self.show_bone_name.setCheckable(True)
-        # self.show_bone_name.setObjectName(u"pushButton_3")
-        self.show_bone_name.setProperty('bt_name','show_bone_name')
-        self.show_bone_name.toggled.connect(self.button_check_handler)  # 监听状态变化
-        main_layout.addWidget(self.button)
-        main_layout.addWidget(self.set_bone_display)
-        main_layout.addWidget(self.show_bone_name)
-        
-        # self.label = QLabel("test")
-        # main_layout.addWidget(self.label)
-        self.horizontalLayout_2 = QHBoxLayout()
-        # self.horizontalLayout_2.setSpacing(0)
-        # self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.pushButton_2 = Button('','material.svg')
-        self.pushButton_2.setProperty('bt_name','set_viewport_display_random')
-        self.pushButton_2.setObjectName(u"pushButton_2")
-        self.pushButton_2.clicked.connect(self.button_handler)
-        self.horizontalLayout_2.addWidget(self.pushButton_2)
 
-        self.pushButton_3 = Button('')
-        self.pushButton_3.setObjectName(u"pushButton_3")
-        # self.pushButton_3.setProperty('bt_name','set_viewport_display_random')
-        # self.pushButton_3.toggled.connect(self.button_check_handler)  # 监听状态变化
-        self.horizontalLayout_2.addWidget(self.pushButton_3)
+        self.qt_shapekey=Qt_shapekey(self)
+        self.qt_vertexgroup=QtVertexGroup(self)
+        toolbox = ToolBox()
+        toolbox.addWidget('预处理',PreprocesseWigdet())
+        toolbox.addWidget('顶点组',self.qt_vertexgroup)
+        toolbox.addWidget('形态键',self.qt_shapekey)
 
-        self.pushButton_4 = Button('')
-        self.pushButton_4.setObjectName(u"pushButton_4")
-
-        self.horizontalLayout_2.addWidget(self.pushButton_4)
-
-        
-        sync_col_layout=QHBoxLayout()
-        
-        def get_all_collections(collection):
-            """递归获取所有集合"""
-            all_collections = [collection]
-            for child in collection.children:
-                all_collections.extend(get_all_collections(child))
-            return all_collections
-        self.sync_col_label=QLabel('同步集合')
-        self.show_only_sk = Button('','solo_off.svg')
-        self.show_only_sk.setProperty('bt_name','show_only_sk')
-        self.show_only_sk.setCheckable(True)
-        self.show_only_sk.toggled.connect(self.button_check_handler)  # 监听状态变化
-        # self.show_only_sk.setChecked()
-        self.use_sk_edit = Button('','editmode_hlt.svg')
-        self.use_sk_edit.setProperty('bt_name','use_sk_edit')
-        self.use_sk_edit.setCheckable(True)
-        self.use_sk_edit.toggled.connect(self.button_check_handler)  # 监听状态变化
-        self.sync_col_combox = QComboBox()
-        root_collection = bpy.context.scene.collection
-        all_collections = get_all_collections(root_collection)
-        self.sync_col_combox.setEditable(True)  # 设置为可编辑
-        self.sync_col_combox.setInsertPolicy(QComboBox.NoInsert)  # 禁止添加新项
-        self.sync_col_combox.setCurrentIndex(-1)  # 设置占位文本
-        self.sync_col_combox.setPlaceholderText("集合")  # 设置占位文本
-        
-        
-        # 提取集合名称，排除根集合
-        collection_names = [col.name for col in all_collections]
-        for col_name in collection_names:
-            if col_name=='Scene Collection':
-                self.sync_col_combox.addItem('')
-                continue
-            self.sync_col_combox.addItem(col_name)
-        # 设置 QCompleter
-        completer = QCompleter(collection_names, self.sync_col_combox)
-        completer.setFilterMode(Qt.MatchContains)  # 包含匹配
-        completer.setCompletionMode(QCompleter.PopupCompletion)  # 弹出补全
-        completer.setCaseSensitivity(Qt.CaseInsensitive)  # 设置匹配对大小写不敏感
-        self.sync_col_combox.setCompleter(completer)
-        # 连接槽函数
-        self.sync_col_combox.currentIndexChanged.connect(self.on_combobox_changed)
-  
-        sync_col_layout.addWidget(self.sync_col_label)
-        sync_col_layout.addWidget(self.show_only_sk)
-        sync_col_layout.addWidget(self.use_sk_edit)
-        sync_col_layout.addWidget(self.sync_col_combox)
-        
-
-
-        items=[]
-        # 初始化组件
-        # self.list_view = ListView()
-        self.list_view = ResizableListView()
-        # self.list_view.viewport().setMouseTracking(True)
-        self.model = ListModel(items)
-        self.delegate = ItemDelegate(self.list_view,self)
-        # 将 QSizeGrip 绑定到 list_view 所在窗口（或直接 parent），并对齐右下角
-        self.size_grip = QSizeGrip(self)
-        self.size_grip.setStyleSheet("""
-            QSizeGrip {
-                background-color: rgba(1d1d1d);  /* 半透明红色背景 */
-
-            }
-        """)
-        # row_h = self.list_view.sizeHintForRow(0) or 20
-        # self.resize(300, row_h * 5 + 4)  # +4 为上下边距预留
-        # 设置视图属性
-        self.list_view.setModel(self.model)
-        self.list_view.setItemDelegate(self.delegate)
-        self.list_view.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
-        # 连接 clicked 信号到槽函数
-        self.list_view.list_view.clicked.connect(self.on_item_clicked)
-        self.list_view.list_view.setStyleSheet("""
-            QListView {
-                font-size: 14px;
-                background: #2d2d2d;
-                color: white;
-            }
-            QLineEdit {
-                background: #383838;
-                color: white;
-                border: 1px solid #606060;
-                padding: 2px;
-            }
-        """)
-        shapekey_bt_layout=QVBoxLayout()
-        shapekey_bt_layout.setSpacing(0)
-        shapekey_bt_layout.setContentsMargins(0, 0, 0, 0)
-        self.button11 = Button("","add.svg",)
-        self.button11.setProperty('bt_name','add_shape_key')
-        self.button11.clicked.connect(self.button_handler)
-        self.button12 = Button("","plus.svg",)
-        self.button12.setProperty('bt_name','add_shape_key_here')
-        self.button12.clicked.connect(self.button_handler)
-        self.button13 = Button("","remove.svg",)
-        self.button13.setProperty('bt_name','rm_shape_key')
-        self.button13.clicked.connect(self.button_handler)
-
-        self.sk_menu = MenuButton(self,"","downarrow_hlt.svg",)
-        self.sk_menu.setStyleSheet("""
-            QPushButton {
-                background-color: #1d1d1d;  
-                color: white;               /* 文本颜色 */
-            }
-            QMenu {
-                background-color: #333333;  /* 背景颜色 */
-                color: white;               /* 文本颜色 */
-            }
-            QMenu::item:selected {
-                background-color: #555555;  /* 选中项的背景颜色 */
-            }                    
-        """)
-
-        self.button14 = Button("","tria_up.svg",)
-        self.button14.setProperty('bt_name','up_shape_key')
-        self.button14.clicked.connect(self.button_handler)
-        self.button15 = Button("","tria_down.svg",)
-        self.button15.setProperty('bt_name','dm_shape_key')
-        self.button15.clicked.connect(self.button_handler)
-        self.button16 = Button("","panel_close.svg",)
-        self.button16.setProperty('bt_name','set_0')
-        self.button16.clicked.connect(self.button_handler)
-        # for btn in (self.button11, self.button12, self.button13,
-        #     self.sk_menu, self.button14, self.button15, self.button16):
-        #     btn.setContentsMargins(0, 0, 0, 0)
-        #     btn.setStyleSheet("margin:0px; padding:0px;")
-        shapekey_bt_layout.addWidget(self.button11)
-        shapekey_bt_layout.addWidget(self.button12)
-        shapekey_bt_layout.addWidget(self.button13)
-        shapekey_bt_layout.addWidget(self.sk_menu)
-        shapekey_bt_layout.addWidget(self.button14)
-        shapekey_bt_layout.addWidget(self.button15)
-        shapekey_bt_layout.addWidget(self.button16)
-        shapekey_bt_layout.addStretch()
-        shapekey_col_layout=QVBoxLayout()
-        shapekey_col_layout.addLayout(sync_col_layout)
-        shapekey_col_layout.addWidget(self.list_view)
-        # shapekey_col_layout.addWidget(self.size_grip, 0, Qt.AlignRight | Qt.AlignBottom)
-        # row_h = self.list_view.sizeHintForRow(0) or 200
-        # self.resize(300, row_h * 5 + 4)  # +4 为上下边距预留
-        # 初始尺寸，让它能显示约 5 行（根据你的 delegate/字体大小微调）
-        mio_layout=QHBoxLayout()  
-        collapsible_widget = CollapsibleWidget("Collapsible Section",mio_layout,self)
-        collapsible_menu=CategoryTreeWidget(self)
-        collapsible_menu.add_category(title="形态键", content_layout=mio_layout)
-        # collapsible_widget.set_content_layout(mio_layout)
         layout.addLayout(top_layout)
-        layout.addLayout(main_layout)
-        layout.addLayout(self.horizontalLayout_2)
-        layout.addWidget(collapsible_menu)
-        # layout.addWidget(collapsible_widget)
-        layout.addStretch()
-        
-        weight=QVBoxLayout()
-        self.button15 = Button("","tria_up.svg",)
-        self.button15.setProperty('bt_name','up_shape_key')
-        weight.addWidget(self.button15)
-        layout.addLayout(weight)
-        # layout.addLayout(mio_layout)
-        mio_layout.setSpacing(0)
-        mio_layout.setContentsMargins(0, 0, 0, 0)
-        mio_layout.addLayout(shapekey_col_layout)
-        mio_layout.addLayout(shapekey_bt_layout)
+        layout.addWidget(toolbox)
+
+
         self.setLayout(layout)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        def debug_layout_borders(widget, depth=0, colors=None):
+            if colors is None:
+                # 自定义一组层级颜色（循环使用）
+                colors = [
+                    "red", "green", "blue", "orange", "purple",
+                    "cyan", "magenta", "brown", "gray"
+                ]
+
+            if isinstance(widget, QWidget):
+                color = colors[depth % len(colors)]
+                widget.setStyleSheet(f"border: 2px dashed {color};")
+                widget.styleSheet
+                for child in widget.findChildren(QWidget, options=Qt.FindDirectChildrenOnly):
+                    debug_layout_borders(child, depth + 1, colors)
+        # debug_layout_borders(self)
+
 
         # 用持久化 QTimer 取代 singleShot
         self._timer = QTimer(self)
@@ -542,104 +402,8 @@ class MyQtWindow(QWidget):
         # 用于记录鼠标拖动时的初始位置
         self.dragging = False
         self.offset = QPoint()
-    def handle_show_only_sk(self,checked):
-        bpy.context.object.show_only_shape_key = checked
-        if checked:
-            self.show_only_sk.setStyleSheet("""
-                QPushButton {
-                    background-color: #4772b3;  /* 点击后常亮的颜色 */
-                    color: white;
-                }
-            """)
-        else:
-            self.show_only_sk.setStyleSheet("""
-                QPushButton {
-                    background-color: none;  /* 恢复正常状态 */
-                    color: black;
-                }
-            """)
-    def handle_use_sk_edit(self,checked):
-        bpy.context.object.use_shape_key_edit_mode = checked
-        if checked:
-            self.use_sk_edit.setStyleSheet("""
-                QPushButton {
-                    background-color: #4772b3;  /* 点击后常亮的颜色 */
-                    color: white;
-                }
-            """)
-        else:
-            self.use_sk_edit.setStyleSheet("""
-                QPushButton {
-                    background-color: none;  /* 恢复正常状态 */
-                    color: black;
-                }
-            """)
-    def handle_set_bone_display(self): 
-        bpy.ops.kourin.set_bone_display()
-    def handle_show_bone_name(self,checked): 
-        print('show_bone_name')
-        bpy.ops.kourin.show_bone_name(t_f=checked)
-    def handle_set_viewport_display_random(self): 
-        bpy.ops.kourin.set_viewport_display_random()
-    def handle_add_shape_key(self):
-        bpy.ops.object.shape_key_add(from_mix=False)
-        self.update_shape_keys()
-        return None
-    def handle_add_shape_key_here(self):
-        bpy.ops.mio3sk.add_key_current()
-        self.update_shape_keys()
-        return None
-    def handle_rm_shape_key(self):
-        bpy.ops.object.shape_key_remove(all=False)
-        self.update_shape_keys()
-        return None
-    def handle_up_shape_key(self):
-        bpy.ops.object.shape_key_move(type='UP')
-        self.update_shape_keys()
-        return None
-    def handle_dm_shape_key(self):
-        bpy.ops.object.shape_key_move(type='DOWN')
-        self.update_shape_keys()
-        return None
-    def handle_set_0(self):
-        bpy.ops.object.shape_key_clear()
-        self.update_shape_keys()
-        return None
-    def button_handler(self):
-        name = self.sender().property('bt_name')
-        # print(f'dianjiele {name}')
-        # 动态找到处理函数或从映射里取
-        func = getattr(self, f"handle_{name}")
-        bpy.app.timers.register(func)
 
-    def button_check_handler(self,checked):
-        print('show_bone_name1')
-        name = self.sender().property('bt_name')
-        # print(f'dianjiele {name}')
-        # 动态找到处理函数或从映射里取
-        func = getattr(self, f"handle_{name}")
-        bpy.app.timers.register(partial(func, checked))
-    
-    def on_item_clicked(self, index):
-        import time
-        a=time.time()
-        item_text = self.model.data(index, Qt.DisplayRole)
-        # print(f"点击了项: {item_text}")
-        # 查找形态键的索引
-        index = self.obj.data.shape_keys.key_blocks.find(item_text)
-        # 设置激活的形态键
-        if index != -1:
-            self.obj.active_shape_key_index = index
-        # print('点击选中item耗时',time.time()-a)
-    def on_combobox_changed(self, index):
-        # print('更换同步集合')
-        # 获取当前选中的文本
-        selected_text = self.sync_col_combox.currentText()
-        if selected_text !='':
-            self.obj.mio3sksync.syncs=bpy.data.collections[f'{selected_text}']
-        else:
-            self.obj.mio3sksync.syncs=None
-        # print(f"Selected item: {selected_text}")
+
     def mousePressEvent(self, event):
         # print(bpy.data.objects['Dress'].use_mesh_mirror_x)
         if event.button() == Qt.LeftButton:
@@ -667,47 +431,6 @@ class MyQtWindow(QWidget):
             self.close()
         super().keyPressEvent(event)
 
-    def delete_unused_bones(self):
-        bpy.app.timers.register(self.del_unused_bones_call)
-    def update_shape_keys(self, new_sks=None):
-        # print('触发更新shapekey',self.obj)
-
-        import time
-        a=time.time()
-        if self.obj.type=="MESH":
-            
-            if self.obj.data.shape_keys is not None:
-                self.s_ks = self.obj.data.shape_keys.key_blocks
-                # print(len(self.s_ks))
-   
-                new_items = [Item(f"{sk.name}", sk.value) for sk in self.s_ks]
- 
-                # print(len(self.obj.data.shape_keys.key_blocks))
-            else:
-                new_items=[]
-        else:
-            new_items=[]
-        self.model.beginResetModel()
-        self.model._items = new_items
-        self.model.endResetModel()
-        bpy.app.timers.register(partial(on_shape_key_index_change,self))
-        # print('刷新形态键耗时',time.time()-a)
-        
-    def del_unused_bones_call(self):
-        obj = bpy.context.active_object
-        if not obj or obj.type != 'ARMATURE':
-            toast = ToastWindow("请选择一个骨骼对象", parent=self)
-            toast.show_at_center_of(self)
-            return
-
-        bpy.ops.kourin.delete_unused_bones()
-        
-        # 显示提示窗口
-        toast = ToastWindow("操作已完成", parent=self)
-        toast.show_at_center_of(self)
-
-        return None
-
     def closeEvent(self, event):
         global qt_window
         # 停止层级维护循环
@@ -719,40 +442,6 @@ class MyQtWindow(QWidget):
         QApplication.quit()
         return super().closeEvent(event)
 
-class ToastWindow(QWidget):
-    def __init__(self, message="操作已完成", duration=3000, parent=None):
-        super().__init__(parent)
-        self.setWindowFlags(
-            Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.X11BypassWindowManagerHint
-        )
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_ShowWithoutActivating)
-
-        # 布局和文本
-        layout = QVBoxLayout(self)
-        self.label = QLabel(message)
-        self.label.setStyleSheet("""
-            QLabel {
-                color: white;
-                background-color: rgba(0, 0, 0, 20);
-                padding: 10px;
-                border-radius: 10px;
-                font-size: 16px;
-            }
-        """)
-        self.label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.label)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(layout)
-        self.adjustSize()
-
-        # 自动关闭
-        QTimer.singleShot(duration, self.close)
-
-    def show_at_center_of(self, parent_widget):
-        parent_center = parent_widget.geometry().center()
-        self.move(parent_center - self.rect().center())
-        self.show()
 
 # ========= Blender Operator ===========
 
@@ -772,9 +461,10 @@ class ShowQtPanelOperator(bpy.types.Operator):
 
         # 显示主窗口
         if not qt_window or not qt_window.isVisible():
-
-            qt_window = MyQtWindow(last_window_pos)
-
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW("GHOST_WindowClass", None)
+            qt_window = MyQtWindow(hwnd,last_window_pos)
+            qt_window.setAttribute(Qt.WA_NativeWindow, True)  # 强制成本地窗口
             dark_stylesheet = """
                 QWidget {
                     background-color: #2d2d2d;
@@ -795,11 +485,25 @@ class ShowQtPanelOperator(bpy.types.Operator):
             """
             qt_app.setStyleSheet(dark_stylesheet)
             qt_window.show()
+            qt_window.raise_()
+            _ = qt_window.winId()  # 触发创建窗口句柄
+        
         #刷新视图,更新deps
         obj = bpy.context.view_layer.objects.active
         bpy.context.view_layer.objects.active=None
         bpy.context.view_layer.objects.active=obj
         return {'FINISHED'}
+    # 添加一个 Blender 定时器，每 0.02 秒触发一次 modal，来让 Qt 得到事件处理机会
+        # wm = context.window_manager
+        # self._timer = wm.event_timer_add(0.02, window=context.window)
+        # wm.modal_handler_add(self)
+    #     return {'RUNNING_MODAL'}
+    # def modal(self, context, event):
+    #     global qt_app, qt_window,last_window_pos
+    #     qapp = QtWidgets.QApplication.instance()
+    #     qapp.processEvents(QEventLoop.AllEvents)  
+    #     qt_window.update() 
+    #     return {'PASS_THROUGH'}
 
 
 def menu_func(self, context):

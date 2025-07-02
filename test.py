@@ -2,67 +2,6 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QToolButton, QLabel, QFrame,QSizePolicy,QLayout
 )
 from PySide6.QtCore import Qt,QPropertyAnimation,QEasingCurve
-
-# class CollapsibleWidget(QWidget):
-#     def __init__(self, title="", content_layout = None, parent=None):
-#         super().__init__(parent)
-
-#     # 按钮设置
-#         self.toggle_button = QToolButton(text=title)
-#         self.toggle_button.setStyleSheet("""
-#             QToolButton {
-#                 background-color: #333333;
-#                 color: #ffffff;
-#                 border: none;
-#                 text-align: left;
-#                 font-weight: bold;
-#             }
-#             QToolButton:hover {
-#                 background-color: #444444;
-#             }
-#             QToolButton:pressed {
-#                 background-color: #222222;
-#             }
-#         """)
-#         self.toggle_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-#         self.toggle_button.setCheckable(True)
-#         self.toggle_button.setChecked(False)
-#         self.toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-#         self.toggle_button.setArrowType(Qt.RightArrow)
-#         self.toggle_button.clicked.connect(self.toggle_content)
-
-#         # 内容区域
-#         self.content_area = QFrame()
-#         # self.content_area.setStyleSheet("background-color: #1e1e1e; border: 1px solid #333;")
-#         self.content_area.setMaximumHeight(0)  # 开始时隐藏
-#         self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-#         self.toggle_animation = QPropertyAnimation(self.content_area, b"maximumHeight")
-#         self.toggle_animation.setDuration(150)
-#         self.toggle_animation.setEasingCurve(QEasingCurve.InOutQuad)
-
-#         # 主布局
-#         layout = QVBoxLayout(self)
-#         layout.setSpacing(2)
-#         layout.setContentsMargins(0, 0, 0, 0)
-#         layout.addWidget(self.toggle_button)
-#         layout.addWidget(self.content_area)
-
-#     def toggle_content(self):
-#         checked = self.toggle_button.isChecked()
-#         self.toggle_button.setArrowType(Qt.DownArrow if checked else Qt.RightArrow)
-
-#         content_height = self.content_area.layout().sizeHint().height() if self.content_area.layout() else 100
-#         start_value = 0 if checked else content_height
-#         end_value = content_height if checked else 0
-
-#         self.toggle_animation.stop()
-#         self.toggle_animation.setStartValue(start_value)
-#         self.toggle_animation.setEndValue(end_value)
-#         self.toggle_animation.start()
-#     def set_content_layout(self, layout):
-#         # 设置内容区域的布局
-#         self.content_area.setLayout(layout)
 class CollapsibleWidget(QWidget):
     def __init__(self, title="", content_layout: QLayout = None, parent=None):
         super().__init__(parent)
@@ -237,75 +176,187 @@ class QtCategoryButton(QToolButton):
         return QSize(width, hint.height())
 
 
+# class CategoryTreeWidget(QWidget):
+#     """
+#     Widget encapsulating a QTreeWidget with collapsible categories.
+#     Automatically adjusts its size when categories collapse/expand.
+#     """
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+#         self.tree = QTreeWidget()
+#         self.tree.setColumnCount(1)
+#         self.tree.setHeaderHidden(True)
+#         self.tree.setRootIsDecorated(False)
+#         self.tree.setIndentation(0)
+#         self.tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+#         self.tree.setContentsMargins(0, 0, 0, 0)
+#         # allow widget to shrink vertically
+#         # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+#         # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+#         # self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+#         layout = QVBoxLayout(self)
+#         layout.setSpacing(0)
+#         layout.setContentsMargins(0, 0, 0, 0)
+#         layout.addWidget(self.tree)
+#         # self.tree.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+#         self.tree.itemCollapsed.connect(self._on_item_toggled)
+#         self.tree.itemExpanded.connect(self._on_item_toggled)
+
+    # def add_category(self, title: str, content_layout: QLayout = None, buttons: list[str] | None = None):
+    #     item = QTreeWidgetItem(self.tree)
+    #     item.setExpanded(True)
+    #     btn = QtCategoryButton(title, self.tree, item)
+    #     self.tree.setItemWidget(item, 0, btn)
+
+    #     container = QFrame(self.tree)
+    #     if content_layout:
+    #         container.setLayout(content_layout)
+    #     # else:
+    #     #     from PySide6.QtWidgets import QVBoxLayout
+    #     #     default_layout = QVBoxLayout(container)
+    #     #     default_layout.setContentsMargins(0, 0, 0, 0)
+    #     #     default_layout.setSpacing(0)
+    #     #     if buttons:
+    #     #         for txt in buttons:
+    #     #             default_layout.addWidget(QPushButton(txt))
+
+    #     child = QTreeWidgetItem(item)
+    #     child.setDisabled(True)
+    #     self.tree.setItemWidget(child, 0, container)
+
+    #     self.tree.resizeColumnToContents(0)
+    #     self._adjust_parent()
+
+    # def _on_item_toggled(self, item):
+    #     self.tree.resizeColumnToContents(0)
+    #     self._adjust_parent()
+    #     if item.isExpanded():
+    #         print(f"Item '{item.text(0)}' is 展开.")
+    #         # self.h=self.height()
+    #         # if hasattr(self,'h'):
+    #         #     self.setFixedHeight(230)
+    #         self.setMinimumHeight(200)
+    #         self.setMaximumHeight(200)
+    #         self.updateGeometry()
+    #     else:
+    #         print(f"Item '{item.text(0)}' is 折叠.")
+    #         # self.h=self.height()
+    #         # self.setFixedHeight(23)
+    #         self.setMinimumHeight(23)
+    #         self.setMaximumHeight(23)
+    #         self.updateGeometry()
+    #     print('cate',self.size())
+    
+    
+    
+    # def _adjust_parent(self):
+    #     # Update self and parent layouts
+    #     self.updateGeometry()
+    #     # self.adjustSize()
+    #     parent = self.parentWidget()
+    #     if parent:
+    #         parent.updateGeometry()
+    #         parent.update()
+    #         parent.adjustSize()
+    #         layout = parent.layout()
+    #         if layout:
+    #             layout.invalidate()
+    #             layout.activate()
+
+    # def sizeHint(self):
+    #     tree_hint = self.tree.sizeHint()
+    #     return QSize(tree_hint.width(), tree_hint.height())
+
+
 class CategoryTreeWidget(QWidget):
     """
     Widget encapsulating a QTreeWidget with collapsible categories.
-    Automatically adjusts its size when categories collapse/expand.
+    Allows passing either a QWidget or a QLayout as the content of each category.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.tree = QTreeWidget()
+        self.tree = QTreeWidget(self)
         self.tree.setColumnCount(1)
         self.tree.setHeaderHidden(True)
         self.tree.setRootIsDecorated(False)
         self.tree.setIndentation(0)
         self.tree.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
-
-        # allow widget to shrink vertically
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.tree.setContentsMargins(0, 0, 0, 0)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.tree)
 
         self.tree.itemCollapsed.connect(self._on_item_toggled)
         self.tree.itemExpanded.connect(self._on_item_toggled)
 
-    def add_category(self, title: str, content_layout: QLayout = None, buttons: list[str] | None = None):
+    def add_category(self,
+                     title: str,
+                     *,
+                     content_widget: QWidget = None,
+                     content_layout: QLayout = None,
+                     buttons: list[str] | None = None):
+        """
+        添加一个可折叠的分类：
+          - title: 分类标题
+          - content_widget: 已有的 QWidget，直接作为折叠内容
+          - content_layout: 如果你只有一个 QLayout，可传进来，内部会包一层 QWidget
+          - buttons: （暂未使用，保留扩展）
+        """
+        # 1) 在 tree 上新建顶级 item + 标题按钮
         item = QTreeWidgetItem(self.tree)
         item.setExpanded(True)
         btn = QtCategoryButton(title, self.tree, item)
         self.tree.setItemWidget(item, 0, btn)
 
-        container = QFrame(self.tree)
-        if content_layout:
-            container.setLayout(content_layout)
+        # 2) 准备一个 container，它永远是新的 widget，不会跟你窗体的 layout 重复
+        if content_widget is not None:
+            container = content_widget
         else:
-            from PySide6.QtWidgets import QVBoxLayout
-            default_layout = QVBoxLayout(container)
-            default_layout.setContentsMargins(0, 0, 0, 0)
-            default_layout.setSpacing(0)
-            if buttons:
-                for txt in buttons:
-                    default_layout.addWidget(QPushButton(txt))
+            # 用 QFrame 或 QWidget 都行，只要它是新的 container
+            container = QFrame(self.tree)
+            # 复用你传进来的 layout，但在 container 上重新 set 一次
+            if content_layout is not None:
+                content_layout.setContentsMargins(0, 0, 0, 0)
+                content_layout.setSpacing(0)
+                container.setLayout(content_layout)
+            else:
+                # 如果两者都没给，可以自己在这里新建一个 VBox 布局
+                tmp = QVBoxLayout(container)
+                tmp.setContentsMargins(0, 0, 0, 0)
+                tmp.setSpacing(0)
+                if buttons:
+                    for txt in buttons:
+                        btn = QPushButton(txt, container)
+                        tmp.addWidget(btn)
 
+        # 3) 挂到一个“子 item”上，这个子 item 只是用来装 container
         child = QTreeWidgetItem(item)
-        child.setDisabled(True)
+        child.setDisabled(True)  # 子项不响应点击
         self.tree.setItemWidget(child, 0, container)
 
         self.tree.resizeColumnToContents(0)
-        self._adjust_parent()
+        # self._adjust_parent()
 
-    def _on_item_toggled(self, item):
+    def _on_item_toggled(self, item: QTreeWidgetItem):
+        # 每次折叠／展开都触发
         self.tree.resizeColumnToContents(0)
+        # 更新自己和外层布局
         self._adjust_parent()
 
     def _adjust_parent(self):
-        # Update self and parent layouts
+        # 通用的刷新布局逻辑
         self.updateGeometry()
-        self.adjustSize()
         parent = self.parentWidget()
         if parent:
             parent.updateGeometry()
             parent.adjustSize()
-            layout = parent.layout()
-            if layout:
-                layout.invalidate()
-                layout.activate()
+            if parent.layout():
+                parent.layout().invalidate()
+                parent.layout().activate()
 
-    def sizeHint(self):
-        tree_hint = self.tree.sizeHint()
-        return QSize(tree_hint.width(), tree_hint.height())
-
-
+    def sizeHint(self) -> QSize:
+        hint = self.tree.sizeHint()
+        return QSize(hint.width(), hint.height())
 
