@@ -12,6 +12,9 @@ class ToolPage(QWidget):
         super().__init__(parent)
         self.m_bIsExpanded = True
 
+        self.mouse_in = False  # 标记鼠标是否在区域内
+
+        self.setFocusPolicy(Qt.StrongFocus)  # 允许接受键盘焦点
         # 主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -81,7 +84,20 @@ class ToolPage(QWidget):
         # )
         pix=pixmap_from_dat(icon_path)
         self.m_pLabel.setPixmap(pix)
+    def enterEvent(self, event):
+        self.mouse_in = True
+        self.setFocus()  # 鼠标进入时强制获取焦点
+        super().enterEvent(event)
 
+    def leaveEvent(self, event):
+        self.mouse_in = False
+        super().leaveEvent(event)
+
+    def keyPressEvent(self, event):
+        if self.mouse_in and event.key() == Qt.Key_A:
+            # 切换折叠状态
+            self.onPushButtonFoldClicked()
+        super().keyPressEvent(event)
 
 class ToolBox(QWidget):
     def __init__(self, parent=None):
@@ -112,22 +128,4 @@ class ToolBox(QWidget):
         self.m_pContentVBoxLayout.insertWidget(
             self.m_pContentVBoxLayout.count() - 1, page
         )
-# import sys
-# from PySide6.QtWidgets import QApplication, QLabel
-# # 假设你把前面的代码保存为 pyside6_toolbox.py 并放在同级目录
 
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-
-#     # 创建一个 ToolBox 实例
-#     toolbox = ToolBox()
-#     toolbox.setWindowTitle("我的工具箱示例")
-#     toolbox.resize(300, 400)
-
-#     # 向 toolbox 添加几个示例面板
-#     toolbox.addWidget("面板 A", QLabel("这是面板 A 的内容"))
-#     toolbox.addWidget("面板 B", QLabel("这是面板 B 的内容"))
-#     toolbox.addWidget("面板 C", QLabel("这是面板 C 的内容"))
-
-#     toolbox.show()
-#     sys.exit(app.exec())

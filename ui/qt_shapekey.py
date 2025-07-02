@@ -5,8 +5,8 @@ import sys
 import bpy
 from functools import partial
 from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtWidgets import QListView,QSizePolicy,QSizeGrip,QSplitter,QAbstractItemView
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QByteArray,QPoint
+from PySide6.QtWidgets import QListView,QSizePolicy,QSizeGrip,QSplitter,QAbstractItemView,QLineEdit
+from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QByteArray,QPoint,QSortFilterProxyModel
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout,QMenu
 from PySide6.QtGui import QKeyEvent, QCursor,QIcon,QPixmap,QWindow
 from PySide6.QtWidgets import (
@@ -421,13 +421,16 @@ class Qt_shapekey(QWidget):
     def __init__(self, parent=None):
         from .ui_widgets import Button
         super().__init__(parent)
-        self.parent_wg=parent
-        # 总布局
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(3, 3, 3, 3)
-        main_layout.setSpacing(3)
+        self.parent_wg = parent
 
-        # 同步集合区
+        # 主布局
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(3,3,3,3)
+        main_layout.setSpacing(4)
+
+        
+
+        # —— 同步集合区 —— 
         sync_col_layout = QHBoxLayout()
         self.sync_col_label = QLabel('同步集合')
         self.show_only_sk = Button('', 'solo_off.svg')
@@ -440,27 +443,20 @@ class Qt_shapekey(QWidget):
         self.use_sk_edit.toggled.connect(self.button_check_handler)
 
         self.sync_col_combox = QComboBox()
+        # 允许 completer, 但只读
         self.sync_col_combox.setEditable(True)
         self.sync_col_combox.setInsertPolicy(QComboBox.NoInsert)
-        # 只读，防止用户手动输入
         le = self.sync_col_combox.lineEdit()
         le.setReadOnly(True)
         le.setCursorPosition(0)
-
-        # 安装 completer（稍后在 update_collections 里设置 model）
+        # Completer
         self.completer = QCompleter([], self.sync_col_combox)
         self.completer.setFilterMode(Qt.MatchContains)
         self.completer.setCompletionMode(QCompleter.PopupCompletion)
         self.completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.sync_col_combox.setCompleter(self.completer)
-
-        # 首次填充
-        self.update_collection_items()
-        self.sync_col_combox.currentIndexChanged.connect(self.on_combobox_changed)
-        
-        self.clear_button = Button("×")  # 清除集合
-        self.clear_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.clear_button.setFixedSize(20, 20)  # 设置按钮大小
+        self.clear_button = Button('×')
+        self.clear_button.setFixedSize(20,20)
         self.clear_button.clicked.connect(self.clear_sync_col)
 
         sync_col_layout.addWidget(self.sync_col_label)
@@ -471,23 +467,33 @@ class Qt_shapekey(QWidget):
         sync_col_layout.addStretch()
         main_layout.addLayout(sync_col_layout)
 
-        # 列表和按钮区
-        self.list_view = ResizableListView(self)
-        items = []
-        self.model = ListModel(items)
-        self.delegate = ItemDelegate(self.list_view, parent)
-        self.list_view.setModel(self.model)
-        self.list_view.setItemDelegate(self.delegate)
-        self.list_view.setEditTriggers(
-            QtWidgets.QAbstractItemView.DoubleClicked
-        )
-        self.list_view.list_view.clicked.connect(self.on_item_clicked)
-        self.list_view.list_view.setStyleSheet(
-            "QListView { font-size:14px; background:#777; color:white; }"
-        )
+        # —— 形态键列表区 —— 
+        # 原始模型
+        self.model = ListModel([])
+        # 过滤代理
+        # —— 搜索框 —— 
+        self.search_edit = QLineEdit(self)
+        self.search_edit.setPlaceholderText("🔍 搜索形态键")
+        
+        self.proxy = QSortFilterProxyModel(self)
+        self.proxy.setSourceModel(self.model)
+        self.proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+        self.proxy.setFilterRole(Qt.DisplayRole)
+        # 将输入框与过滤器关联
+        self.search_edit.textChanged.connect(self.proxy.setFilterFixedString)
 
-        # 按钮组
-        shapekey_bt_layout = QVBoxLayout()
+        # 列表视图
+        # from .ui_widgets import ResizableListView, ItemDelegate
+        self.list_view = ResizableListView(self)
+        self.list_view.setModel(self.proxy)
+        self.delegate = ItemDelegate(self.list_view, parent)
+        self.list_view.setItemDelegate(self.delegate)
+        self.list_view.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
+        self.list_view.list_view.clicked.connect(self.on_item_clicked)
+        main_layout.addWidget(self.list_view)
+        main_layout.addWidget(self.search_edit)
+        # —— 按钮区 —— 
+        btn_layout = QVBoxLayout()
         for icon, name in [
             ('add.svg','add_shape_key'),
             ('plus.svg','add_shape_key_here'),
@@ -496,83 +502,76 @@ class Qt_shapekey(QWidget):
             btn = Button('', icon)
             btn.setProperty('bt_name', name)
             btn.clicked.connect(self.button_handler)
-            shapekey_bt_layout.addWidget(btn)
+            btn_layout.addWidget(btn)
         self.sk_menu = MenuButton(self, '', 'downarrow_hlt.svg')
-        shapekey_bt_layout.addWidget(self.sk_menu)
-        for icon, name in [('tria_up.svg','up_shape_key'), 
-                           ('tria_down.svg','dm_shape_key'), 
-                           ('panel_close.svg','set_0')]:
+        btn_layout.addWidget(self.sk_menu)
+        for icon, name in [
+            ('tria_up.svg','up_shape_key'),
+            ('tria_down.svg','dm_shape_key'),
+            ('panel_close.svg','set_0'),
+        ]:
             btn = Button('', icon)
             btn.setProperty('bt_name', name)
             btn.clicked.connect(self.button_handler)
-            shapekey_bt_layout.addWidget(btn)
-        shapekey_bt_layout.addStretch()
+            btn_layout.addWidget(btn)
+        btn_layout.addStretch()
 
-        # 将 list 和按钮布局水平排列
+        # 水平组合列表与按钮
         content_layout = QHBoxLayout()
         content_layout.addWidget(self.list_view)
-        content_layout.addLayout(shapekey_bt_layout)
+        content_layout.addLayout(btn_layout)
         main_layout.addLayout(content_layout)
-
-        # 可拖拽尺寸手柄
+        
+        # 尺寸手柄
         size_grip = QSizeGrip(self)
-        main_layout.addWidget(size_grip, 0, Qt.AlignRight | Qt.AlignBottom)
+        main_layout.addWidget(size_grip, 0, Qt.AlignRight|Qt.AlignBottom)
 
-        self.setLayout(main_layout)
+        # 信号连接
+        self.sync_col_combox.currentIndexChanged.connect(self.on_combobox_changed)
+
+        # 首次填充
+        self.update_collection_items()
+        self.update_shape_keys()
+
     def update_collection_items(self):
-        # 保存当前选中项
-        current_text = self.sync_col_combox.currentText()
-
-        self.sync_col_combox.blockSignals(True)  # 防止刷新时触发信号
+        # 保存并恢复当前
+        current = self.sync_col_combox.currentText()
+        self.sync_col_combox.blockSignals(True)
         self.sync_col_combox.clear()
-
-        # 提取所有集合
-        def get_all(collection):
-            lst = [collection]
-            for c in collection.children:
-                lst += get_all(c)
+        # 递归获取所有集合
+        def gather(col):
+            lst = [col]
+            for c in col.children:
+                lst += gather(c)
             return lst
-
-        root_collection = bpy.context.scene.collection
-        all_cols = get_all(root_collection)
-        names = [c.name for c in all_cols]
-
-        for name in names:
-            if name == 'Scene Collection':
-                self.sync_col_combox.addItem('')
-            else:
-                self.sync_col_combox.addItem(name)
-
-        # 恢复选中项（如果存在）
-        index = self.sync_col_combox.findText(current_text)
-        if index >= 0:
-            self.sync_col_combox.setCurrentIndex(index)
-
+        all_cols = gather(bpy.context.scene.collection)
+        names = [c.name for c in all_cols if c.name != 'Scene Collection']
+        self.sync_col_combox.addItem('')
+        for n in names:
+            self.sync_col_combox.addItem(n)
+        # Completer 更新
+        self.completer.model().setStringList(names)
+        # 恢复选中
+        idx = self.sync_col_combox.findText(current)
+        if idx >= 0:
+            self.sync_col_combox.setCurrentIndex(idx)
         self.sync_col_combox.blockSignals(False)
 
     def update_shape_keys(self, new_sks=None):
-        from .ui_vrc_panel import on_shape_key_index_change,qt_window
-        # print('触发更新shapekey',parent.obj)
-
-        import time
-        a=time.time()
-        if qt_window.obj.type=="MESH":
-            
-            if qt_window.obj.data.shape_keys is not None:
-                self.s_ks = qt_window.obj.data.shape_keys.key_blocks
-                # print(len(self.s_ks))
-   
-                new_items = [Item(f"{sk.name}", sk.value) for sk in self.s_ks]
- 
-                # print(len(parent.obj.data.shape_keys.key_blocks))
-            else:
-                new_items=[]
-        else:
-            new_items=[]
+        from .ui_vrc_panel import qt_window,on_shape_key_index_change
+        # 拉取 Blender 形态键
+        sk_names = []
+        if not qt_window:return
+        if qt_window.obj.type == "MESH" and qt_window.obj.data.shape_keys:
+            sk_names = [sk.name for sk in qt_window.obj.data.shape_keys.key_blocks]
+        # 更新模型
         self.model.beginResetModel()
-        self.model._items = new_items
+        self.model._items = [Item(n, 0.0) for n in sk_names]
         self.model.endResetModel()
-        bpy.app.timers.register(partial(on_shape_key_index_change,qt_window))
+        # 让过滤器重新生效
+        self.proxy.invalidateFilter()
+        # 更新 Blender 视图索引
+        bpy.app.timers.register(partial(on_shape_key_index_change, qt_window))
 
     # 以下为按钮和下拉框回调示例，需在类中实现
     def on_combobox_changed(self, index=None):
@@ -603,7 +602,7 @@ class Qt_shapekey(QWidget):
         bpy.app.timers.register(func)
 
     def button_check_handler(self,checked):
-        print('show_bone_name1')
+        # print('show_bone_name1')
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取

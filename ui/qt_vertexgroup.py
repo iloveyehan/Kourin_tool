@@ -1,7 +1,7 @@
 from functools import partial
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
-    QStyledItemDelegate, QStyle, QSplitter, QSizePolicy,QLineEdit,QAbstractItemView
+    QStyledItemDelegate, QStyle, QSplitter, QSizePolicy,QLineEdit,QAbstractItemView,QSpacerItem
 )
 from PySide6.QtCore import Qt, QStringListModel,QEvent,QAbstractListModel,QModelIndex,QRect,QSize
 from PySide6.QtGui import QColor
@@ -211,9 +211,10 @@ class QtVertexGroup(QWidget):
         )
 
         self.list_view.selectionModel().selectionChanged.connect(self.on_selection_changed)
-
+        
+        self.list_view.setFixedHeight(140)
         top_layout.addWidget(self.list_view)
-
+        # top_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
         vg_btn = QVBoxLayout()
         vg_btn.setContentsMargins(0, 0, 0, 0)
         vg_btn.setSpacing(0)
@@ -239,29 +240,30 @@ class QtVertexGroup(QWidget):
         vg_clean = QHBoxLayout()
         vg_clean.setContentsMargins(0, 0, 0, 0)
         vg_clean.setSpacing(0)
-        for  name,bt_name in [
-            ['清','clean_zero'],
-            ['未','unused'],
-            ['零','rm_zero'],
-            ['rigify','vg_rigify'],
-            ['普通','vg_normal'],
+        for  name,bt_name,tooltip in [
+            ['清','clean_zero','清理顶点组内的非法权重或0'],
+            ['未','unused','删除没使用的顶点组\n(没形变或被修改器使用)'],
+            ['零','rm_zero','删除0权重顶点组'],
+            ['rigify','vg_rigify','添加DEF-前缀'],
+            ['普通','vg_normal','删除DEF-前缀'],
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
             btn.clicked.connect(self.button_handler)
+            btn.setToolTip(tooltip)
             vg_clean.addWidget(btn)
         # vg_btn.addStretch()
         vg_mirror = QHBoxLayout()
         vg_mirror.setContentsMargins(0, 0, 0, 0)
         vg_mirror.setSpacing(0)
         self.btn_dict={}
-        for  name,bt_name in [
-            ['←','vg_left'],
-            ['→','vg_right'],
-            [' | ','vg_middle'],
-            ['镜像','vg_mirror'],
-            ['多','vg_mul'],
-            ['选','vg_select'],
+        for  name,bt_name,tooltip in [
+            ['←','vg_left','把顶点组顶点组复制到左边'],
+            ['→','vg_right','把顶点组顶点组复制到右边'],
+            [' | ','vg_middle','中间的顶点组,配合左右使用'],
+            ['镜像','vg_mirror','把顶点组顶点组复制到箭头方向'],
+            ['多','vg_mul','把一半的顶点组镜像到箭头方向'],
+            ['选','vg_select','只镜像选中的顶点组\n姿态模式下选中骨骼'],
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -271,21 +273,24 @@ class QtVertexGroup(QWidget):
                 btn.clicked.connect(self.button_check_handler)
             else:
                 btn.clicked.connect(self.button_handler)
+            btn.setToolTip(tooltip)
             vg_mirror.addWidget(btn)
             self.btn_dict[bt_name]=btn
         self.combo = QComboBox()
         self.combo.addItems(["最近", "面投射"])
         self.combo.currentTextChanged.connect(self.on_combo_changed)
         vg_mirror.addWidget(self.combo)
+        vg_mirror.addStretch()
 
         
         vg_outer.addLayout(vg_clean)
         vg_outer.addLayout(vg_mirror)
+        vg_outer.addStretch()
         outer_splitter.addWidget(bottom)
 
         # 初始比例：上部 70%，下部 30%
-        outer_splitter.setStretchFactor(0, 7)
-        outer_splitter.setStretchFactor(1, 3)
+        outer_splitter.setStretchFactor(0, 5)
+        outer_splitter.setStretchFactor(1, 5)
 
         # 把 splitter 放入主布局
         main_layout = QVBoxLayout(self)
