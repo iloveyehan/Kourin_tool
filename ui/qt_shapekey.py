@@ -5,14 +5,14 @@ import sys
 import bpy
 from functools import partial
 from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtWidgets import QListView,QSizePolicy,QSizeGrip,QSplitter,QAbstractItemView,QLineEdit
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QEvent,QByteArray,QPoint,QSortFilterProxyModel
+from PySide6.QtWidgets import QListView,QSizePolicy,QSizeGrip,QSplitter,QAbstractItemView,QLineEdit,QAbstractItemDelegate
+from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QEvent,QByteArray,QPoint,QSortFilterProxyModel,Slot
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout,QMenu
-from PySide6.QtGui import QKeyEvent, QCursor,QIcon,QPixmap,QWindow
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCompleter,
-    QLabel, QSizeGrip
+    QLabel, QSizeGrip,
 )
+from PySide6.QtGui import QCursor
 
 from ..utils.utils import has_shapekey, undoable
 
@@ -318,6 +318,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.setProperty("field", "name")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
             # print('点击list view name',time()-a)
+            editor.editingFinished.connect(lambda ed=editor: self.commit_and_close(ed))
             return editor
             
         # 数值编辑器
@@ -334,20 +335,27 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.selectAll()
             editor.setProperty("field", "value")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
+            editor.editingFinished.connect(lambda ed=editor: self.commit_and_close(ed))
             # print('点击list view value',time()-a)
             return editor
         # print('点击list view ',time()-a)
         return None
-
+    @Slot()
+    def commit_and_close(self, editor):
+        # 提交数据
+        self.commitData.emit(editor)
+        # 关闭 editor
+        self.closeEditor.emit(editor, QAbstractItemDelegate.NoHint)
+        # view = self.parent()  # 你在构造 delegate 时，parent 就是 list_view
+        # view.closeEditor(editor, QtWidgets.QAbstractItemDelegate.NoHint)
     def setModelData(self, editor, model, index):
         # print('setModelData')
         if isinstance(editor, QtWidgets.QLineEdit):
             field = editor.property("field")
             if field == "name":
                 model.setData(index, editor.text(), ListModel.NameRole)
-                # print('editor.text()',str(index.data(ListModel.NameRole)))
+                print('editor.text()',str(index.data(ListModel.NameRole)))
                 if self.parent().parent().parent_wg.obj is not None:
-                        print('正在输入2')
                         self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
                 
             elif field == "value":
@@ -605,11 +613,13 @@ class Qt_shapekey(QWidget):
 
         # 1. 取出当前对象的所有 shape keys
         if not has_shapekey(qt_window.obj):
-            return
-        sk_blocks = qt_window.obj.data.shape_keys.key_blocks
+            items=[]
+        else:
+            sk_blocks = qt_window.obj.data.shape_keys.key_blocks
 
-        # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
-        items = [Item(sk.name, sk.value) for sk in sk_blocks]
+            # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
+            items = [Item(sk.name, sk.value) for sk in sk_blocks]
+        
 
         # 3. 更新 Model
         self.model.beginResetModel()
