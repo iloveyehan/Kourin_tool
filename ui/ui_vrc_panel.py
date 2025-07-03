@@ -344,7 +344,7 @@ class MyQtWindow(QWidget):
         QCursor.pos()
         self.adjustSize() 
         # self.setMinimumWidth(250) 
-        self.setMinimumSize(250, 420)
+        self.setMinimumSize(250, 380)
         self.toolbox=QToolBox()
         # 主布局
         layout = QVBoxLayout()

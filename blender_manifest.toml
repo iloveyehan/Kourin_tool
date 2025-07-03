@@ -1,10 +1,10 @@
-schema_version = "1.0.0"
+schema_version = "1.0.3"
 
 # Example of manifest file for a Blender extension
 # Change the values according to your extension
 # id must be the same as the directory name, and must be unique
 id = "Kourin_tool"
-version = "0.0.1"
+version = "1.0.3"
 name = "Basic Add-on Sample"
 tagline = "This is another extension"
 maintainer = "Developer name <email@address.com>"
