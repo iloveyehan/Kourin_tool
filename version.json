@@ -1,6 +1,6 @@
 {
-    "version": "(1,0,3)",
-    "download_url": "https://github.com/iloveyehan/Kourin_tool/archive/refs/tags/v1.03.zip",
+    "version": "(1,0,4)",
+    "download_url": "https://github.com/iloveyehan/Kourin_tool/archive/refs/tags/v1.04.zip",
     "changelog": "修复了自动更新的 bug"
   }
   

@@ -558,19 +558,24 @@ class Qt_shapekey(QWidget):
         self.sync_col_combox.blockSignals(False)
 
     def update_shape_keys(self, new_sks=None):
-        from .ui_vrc_panel import qt_window,on_shape_key_index_change
-        # 拉取 Blender 形态键
-        sk_names = []
-        if not qt_window:return
-        if qt_window.obj.type == "MESH" and qt_window.obj.data.shape_keys:
-            sk_names = [sk.name for sk in qt_window.obj.data.shape_keys.key_blocks]
-        # 更新模型
+        from .ui_vrc_panel import qt_window, on_shape_key_index_change
+
+        if not qt_window:
+            return
+
+        # 1. 取出当前对象的所有 shape keys
+        sk_blocks = qt_window.obj.data.shape_keys.key_blocks
+
+        # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
+        items = [Item(sk.name, sk.value) for sk in sk_blocks]
+
+        # 3. 更新 Model
         self.model.beginResetModel()
-        self.model._items = [Item(n, 0.0) for n in sk_names]
+        self.model._items = items
         self.model.endResetModel()
-        # 让过滤器重新生效
+
+        # 4. 刷新过滤器 & Blender 激活 key
         self.proxy.invalidateFilter()
-        # 更新 Blender 视图索引
         bpy.app.timers.register(partial(on_shape_key_index_change, qt_window))
 
     # 以下为按钮和下拉框回调示例，需在类中实现
