@@ -6,7 +6,7 @@ import bpy
 from functools import partial
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QListView,QSizePolicy,QSizeGrip,QSplitter,QAbstractItemView,QLineEdit
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QByteArray,QPoint,QSortFilterProxyModel
+from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QEvent,QByteArray,QPoint,QSortFilterProxyModel
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout,QMenu
 from PySide6.QtGui import QKeyEvent, QCursor,QIcon,QPixmap,QWindow
 from PySide6.QtWidgets import (
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QLabel, QSizeGrip
 )
 
-from ..utils.utils import undoable
+from ..utils.utils import has_shapekey, undoable
 
 from .qt_load_icon import icon_from_dat
 class MenuButton(QPushButton):
@@ -216,6 +216,14 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         self._dragging = False
         self._drag_start_x = 0
         self._drag_start_val = 0.0
+        self._drag_index = None
+        self._drag_model = None
+
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._onDragTimeout)
+
+        # 安装全局事件过滤器
+        QtWidgets.QApplication.instance().installEventFilter(self)
     def calculate_regions(self, option):
         # print('区域计算')
         # a=time()
@@ -369,7 +377,24 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             if regions["checkbox"].contains(event.pos()):
                 checked = model.data(index, ListModel.CheckedRole)
                 model.setData(index, not checked, ListModel.CheckedRole)
-                
+                return True
+        # 先算出各区域
+        regions = self.calculate_regions(option)
+        # 只关注 value 区域
+        if regions["value"].contains(event.pos()):
+            if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+                self._dragging = True
+                self._drag_start_x = QCursor.pos().x()
+                self._drag_start_val = model.data(index, ListModel.ValueRole)
+                # 保存当前编辑的 index、model
+                self._drag_index = index
+                self._drag_model = model
+                self._timer.start(16)  # 约 60 FPS
+                return True
+
+            elif event.type() == QEvent.MouseButtonRelease and self._dragging:
+                self._timer.stop()
+                self._dragging = False
                 return True
         return super().editorEvent(event, model, option, index)
     def enterEvent(self, event):
@@ -382,7 +407,22 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
     #     # self.releaseKeyboard()
     #     # self.releaseMouse()
         return super().leaveEvent(event)
-
+    def _onDragTimeout(self):
+        if not self._dragging:
+            return
+        dx = QCursor.pos().x() - self._drag_start_x
+        new_val = self._drag_start_val + dx * self.sensitivity
+        new_val = max(self.value_min, min(new_val, self.value_max))
+        self._drag_model.setData(self._drag_index, new_val, ListModel.ValueRole)
+        sk_name = self._drag_model.data(self._drag_index, ListModel.NameRole)
+        self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[sk_name].value = new_val
+    def eventFilter(self, obj, event):
+        if self._dragging and event.type() == QtCore.QEvent.MouseButtonRelease:
+            # 鼠标在任何地方释放，终止拖动
+            self._timer.stop()
+            self._dragging = False
+            return True  # 拦截，不让其他组件处理
+        return False  # 其他事件照常分发
 class ResizableListView(QWidget):
     """
     一个带有可拖拽手柄的QListView容器，允许用户动态调整其高度，
@@ -564,6 +604,8 @@ class Qt_shapekey(QWidget):
             return
 
         # 1. 取出当前对象的所有 shape keys
+        if not has_shapekey(qt_window.obj):
+            return
         sk_blocks = qt_window.obj.data.shape_keys.key_blocks
 
         # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0

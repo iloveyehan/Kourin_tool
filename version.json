@@ -1,6 +1,6 @@
 {
-    "version": "(1,0,4)",
-    "download_url": "https://github.com/iloveyehan/Kourin_tool/archive/refs/tags/v1.04.zip",
-    "changelog": "修复了自动更新的 bug"
+    "version": "(1,0,5)",
+    "download_url": "https://github.com/iloveyehan/Kourin_tool/archive/refs/tags/v1.05.zip",
+    "changelog": "拖拽形态键value"
   }
   
