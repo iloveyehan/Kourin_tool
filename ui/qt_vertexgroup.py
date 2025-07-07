@@ -243,7 +243,7 @@ class QtVertexGroup(QWidget):
         for  name,bt_name,tooltip in [
             ['清','clean_zero','清理顶点组内的非法权重或0'],
             ['未','unused','删除没使用的顶点组\n(没形变或被修改器使用)'],
-            ['零','rm_zero','删除0权重顶点组'],
+            ['零','rm_all_unused','删除0权重顶点组,所有物体'],
             ['rigify','vg_rigify','添加DEF-前缀'],
             ['普通','vg_normal','删除DEF-前缀'],
         ]:
@@ -457,6 +457,9 @@ class QtVertexGroup(QWidget):
     @undoable
     def handle_rm_zero(self):
         bpy.ops.kourin.vg_remove_zero()
+        self.refresh_vertex_groups()
+    def handle_rm_all_unused(self):
+        bpy.ops.kourin.vg_rm_all_unused()
         self.refresh_vertex_groups()
     @undoable
     def handle_vg_rigify(self):

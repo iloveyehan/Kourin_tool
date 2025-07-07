@@ -53,7 +53,7 @@ class InstallPysideOperator(Operator):
             import pip
             # 安装Pyside6库
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyside6"])
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt6"])
+            # subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt6"])
             self.report({'INFO'}, "Pyside6 installed successfully.")
         except Exception as e:
             self.report({'ERROR'}, str(e))

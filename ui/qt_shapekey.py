@@ -425,11 +425,12 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         sk_name = self._drag_model.data(self._drag_index, ListModel.NameRole)
         self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[sk_name].value = new_val
     def eventFilter(self, obj, event):
-        if self._dragging and event.type() == QtCore.QEvent.MouseButtonRelease:
-            # 鼠标在任何地方释放，终止拖动
-            self._timer.stop()
-            self._dragging = False
-            return True  # 拦截，不让其他组件处理
+        if hasattr(self,'_dragging'):
+            if self._dragging and event.type() == QtCore.QEvent.MouseButtonRelease:
+                # 鼠标在任何地方释放，终止拖动
+                self._timer.stop()
+                self._dragging = False
+                return True  # 拦截，不让其他组件处理
         return False  # 其他事件照常分发
 class ResizableListView(QWidget):
     """
@@ -538,6 +539,9 @@ class Qt_shapekey(QWidget):
         self.list_view.setItemDelegate(self.delegate)
         self.list_view.setEditTriggers(QtWidgets.QAbstractItemView.DoubleClicked)
         self.list_view.list_view.clicked.connect(self.on_item_clicked)
+        # 在 list_view 初始化之后（也就是 addWidget、setModel、setItemDelegate 之后）：
+        self.list_view.list_view.selectionModel().currentChanged.connect(self.on_selection_changed)
+
         main_layout.addWidget(self.list_view)
         main_layout.addWidget(self.search_edit)
         # —— 按钮区 —— 
@@ -580,6 +584,14 @@ class Qt_shapekey(QWidget):
         # 首次填充
         self.update_collection_items()
         self.update_shape_keys()
+    def on_selection_changed(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex):
+        if not current.isValid():
+            return
+        name = current.data(Qt.DisplayRole)
+        # 找到对应的 index
+        idx = self.parent_wg.obj.data.shape_keys.key_blocks.find(name)
+        if idx != -1:
+            self.parent_wg.obj.active_shape_key_index = idx
 
     def update_collection_items(self):
         # 保存并恢复当前

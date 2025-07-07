@@ -107,6 +107,41 @@ class Kourin_vg_metarig_to_rig(bpy.types.Operator):
             if i.name[:4] != 'DEF-':
                 i.name = 'DEF-' + i.name
         return {'FINISHED'} 
+class Kourin_vg_remove_zerofast(bpy.types.Operator):
+    """快速删除权重全为 0 的顶点组"""
+    bl_idname = "kourin.vg_rm_all_unused"
+    bl_label = "快速删除权重为0的顶点组"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return 1
+
+    def execute(self, context):
+        for obj in bpy.context.scene.objects:
+            if obj.type=='MESH' and len(obj.vertex_groups):
+                mesh = obj.data
+                
+                # —— 一次遍历：收集所有“有非零权重”的顶点组索引 —— 
+                used_indices = set()
+                for v in mesh.vertices:
+                    for g in v.groups:
+                        if g.weight != 0.0:
+                            used_indices.add(g.group)
+                
+                # —— 所有顶点组索引 —— 
+                all_indices = {vg.index for vg in obj.vertex_groups}
+                
+                # —— 需要删除的那些组 —— 
+                to_remove = sorted(all_indices - used_indices, reverse=True)
+                # reverse=True 保证按从大到小删除，不会破坏索引顺序
+                
+                for idx in to_remove:
+                    # 根据 index 找到 Group，然后删除
+                    vg = obj.vertex_groups[idx]
+                    obj.vertex_groups.remove(vg)
+
+        return {'FINISHED'}
 class Kourin_vg_rig_to_metarig(bpy.types.Operator):
     """将顶点组转换为metarig类型，去除def前缀"""
 

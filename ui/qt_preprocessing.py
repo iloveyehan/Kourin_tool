@@ -107,3 +107,6 @@ class PreprocesseWigdet(QWidget):
     @undoable
     def handle_rename_armature(self):
         bpy.ops.kourin.rename_armatures()
+    @undoable
+    def handle_make_skeleton(self):
+        bpy.ops.kourin.set_bone_display()
