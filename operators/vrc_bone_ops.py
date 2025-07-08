@@ -226,7 +226,7 @@ class Kourin_merge_armatures(bpy.types.Operator):
         for obj in context.scene.objects:
             if obj.type == 'MESH':
                 for mod in obj.modifiers:
-                    if mod.type == 'ARMATURE' and mod.object == other_arm:
+                    if mod.type == 'ARMATURE':
                         mod.object = active_arm
 
         return {'FINISHED'}
