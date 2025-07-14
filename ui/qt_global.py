@@ -14,6 +14,8 @@ class GlobalProperty:
         self.vg_select=False
         self.last_side=''
         self.vg_mirror_search=False
+
+        self._weight_cache={}
         #同步集合缓存
         self.item_current_idx=0
         self.sync_col=None

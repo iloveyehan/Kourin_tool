@@ -46,16 +46,24 @@ def pose_to_reset(armature):
             mod_target=None
             mod_temp = o.modifiers[:]
             mod_off = {}
+            #判断是否处理这个模型
+            do=False
+            for modi in mod_temp:
+                if modi.type=='ARMATURE' and modi.object==armature and modi.show_viewport:
+                    do=True
+            if not do:
+                continue
             for modi in mod_temp:
                 # 记录修改器状态
                 # mod_off[modi.name] = o.modifiers[modi.name].show_viewport
-                if modi.object ==armature :
+
+                if modi.type=='ARMATURE' and modi.object==armature:
                     if modi.show_viewport:
                         mod_target=modi
                         
                 else:
                     # 暂时关闭其他修改器
-                    bpy.context.active_object.modifiers[modi.name].show_viewport = False
+                    o.modifiers[modi.name].show_viewport = False
             if mod_target is not None:
                 mod_temp.remove(mod_target)
             

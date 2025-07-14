@@ -132,7 +132,8 @@ class KourinPoseToReset(bpy.types.Operator):
         return context.active_object.type == 'ARMATURE'
     def execute(self, context):
         armature=bpy.context.object
-        mode=bpy.context.mode
+        mode=bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
         pose_to_reset(armature)
         bpy.ops.object.mode_set(mode=mode)
         self.report({'INFO'}, "应用完成")

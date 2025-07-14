@@ -30,6 +30,7 @@ def sync_show_only_shape_key():
 def sync_active_shape_key():
     object = bpy.context.object
     prop_o = GP.get().obj_sync_col
+    
     if is_sync_collection(object):
         for elem in [o for o in prop_o[object.as_pointer()].objects if has_shapekey(o) and o != object]:
             index = elem.data.shape_keys.key_blocks.find(object.active_shape_key.name)

@@ -538,3 +538,141 @@ class Kourin_mirror_weight(bpy.types.Operator):
         self.report({"INFO"}, _("Mirror completed!"))
         return {'FINISHED'}
 
+class Kourin_vg_asign_new_group(bpy.types.Operator):
+    """ctrl G """
+    bl_idname = "kourin.vg_asign_new_group"
+    bl_label = "Ctrl G 新建组"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type=='MESH'
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH':
+            return {'CANCELLED'}
+        mode_t=obj.mode
+        vg_w_t=context.scene.tool_settings.vertex_group_weight
+        bpy.ops.object.mode_set(mode='EDIT') 
+        context.scene.tool_settings.vertex_group_weight=1
+        bpy.ops.object.vertex_group_assign_new()
+        context.scene.tool_settings.vertex_group_weight=vg_w_t
+        bpy.ops.object.mode_set(mode=mode_t)
+        return {'FINISHED'}
+
+class Kourin_vg_rm_select(bpy.types.Operator):
+    """把顶点移出顶点组"""
+    bl_idname = "kourin.vg_rm_select"
+    bl_label = "把顶点移出顶点组"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type=='MESH'
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH':
+            return {'CANCELLED'}
+        if bpy.context.object.mode not in ['EDIT','WEIGHT_PAINT']: 
+            return {'CANCELLED'}
+        mode_t=obj.mode
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.object.vertex_group_remove_from()
+        bpy.ops.object.mode_set(mode=mode_t)
+        return {'FINISHED'}
+class Kourin_vg_trans_modi(bpy.types.Operator):
+    """数据传递修改器"""
+    bl_idname = "kourin.vg_trans_modi"
+    bl_label = "数据传递修改器"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type=='MESH'
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH':
+            return {'CANCELLED'}
+
+        mode_t=obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        
+        # 添加 Data Transfer
+        mod = obj.modifiers.new(name="TransferToRig", type='DATA_TRANSFER')
+        # 源设为已经 rig 的 mesh（假设与 armature 同名后缀）
+        # mod.object = mesh  # 若骨架本身是 mesh（有权重），这里指向 source mesh
+        mod.use_vert_data = True
+        mod.data_types_verts = {'VGROUP_WEIGHTS'}
+        mod.vert_mapping = 'POLYINTERP_NEAREST'
+        # mod.generate_data_layers = True
+        if obj.vertex_groups.active:
+            mod.vertex_group=obj.vertex_groups.active.name
+        # 可选设置混合模式
+        mod.mix_mode = 'REPLACE'
+        mod.mix_factor = 1.0
+
+        bpy.ops.object.mode_set(mode=mode_t)
+        return {'FINISHED'}
+class CopyVertexGroupWeights(bpy.types.Operator):
+    bl_idname = "kourin.copy_vertex_group_weights"
+    bl_label = "Copy Vertex Group Weights"
+    bl_description = "复制当前顶点组中选中顶点的权重到临时存储"
+# 
+    _weight_cache = {}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'MESH' and obj.vertex_groups.active
+
+    def execute(self, context):
+        obj = context.object
+        vg = obj.vertex_groups.active
+        bm = bpy.context.object.data
+        # 清空缓存
+        from ..ui.qt_global import GlobalProperty as GP
+        # GP.get()._weight_cache.clear()
+        CopyVertexGroupWeights._weight_cache.clear()
+        for v in obj.data.vertices:
+            # 选中顶点
+            if v.select:
+                # 在该组中的权重
+                for g in v.groups:
+                    if g.group == vg.index:
+                        CopyVertexGroupWeights._weight_cache[v.index] = g.weight
+                        g.weight=0
+        self.report({'INFO'}, f"已复制 {len(CopyVertexGroupWeights._weight_cache)} 个顶点权重")
+        return {'FINISHED'}
+
+class PasteVertexGroupWeights(bpy.types.Operator):
+    bl_idname = "kourin.paste_vertex_group_weights"
+    bl_label = "Paste Vertex Group Weights"
+    bl_description = "将缓存的顶点权重粘贴到当前顶点组，并与现有权重相加"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'MESH' and obj.vertex_groups.active and CopyVertexGroupWeights._weight_cache
+
+    def execute(self, context):
+        obj = context.object
+        vg = obj.vertex_groups.active
+        cache = CopyVertexGroupWeights._weight_cache
+        for vidx, w in cache.items():
+            # 获取当前顶点的现有权重
+            try:
+                existing = 0.0
+                for g in obj.data.vertices[vidx].groups:
+                    if g.group == vg.index:
+                        existing = g.weight
+                        break
+                new_weight = existing + w
+                vg.add([vidx], new_weight, 'REPLACE')
+            except Exception:
+                continue
+        self.report({'INFO'}, f"已粘贴 {len(cache)} 个顶点权重（累加）")
+        return {'FINISHED'}

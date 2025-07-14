@@ -218,12 +218,17 @@ class QtVertexGroup(QWidget):
         vg_btn = QVBoxLayout()
         vg_btn.setContentsMargins(0, 0, 0, 0)
         vg_btn.setSpacing(0)
-        for icon, name in [
-            ('add.svg','add_vg'),
-            ('remove.svg','rm_vg'),
+        for icon, name,tooltip in [
+            ('add.svg','add_vg','新建'),
+            ('remove.svg','rm_vg','移除'),
+            ('vg_asign.png','vg_asign','把选中的顶点新建成顶点组'),
+            ('vg_select_v.png','vg_select_v','选中当前组的顶点'),
+            ('vg_rm_select.png','vg_rm_select','把选中的顶点移出顶点组'),
+            ('vg_trans_modi.png','vg_trans_modi','添加数据传递修改器'),
         ]:
             btn = Button('', icon)
             btn.setProperty('bt_name', name)
+            btn.setToolTip(tooltip)
             btn.clicked.connect(self.button_handler)
             vg_btn.addWidget(btn)
         vg_btn.addStretch()
@@ -246,6 +251,8 @@ class QtVertexGroup(QWidget):
             ['零','rm_all_unused','删除0权重顶点组,所有物体'],
             ['rigify','vg_rigify','添加DEF-前缀'],
             ['普通','vg_normal','删除DEF-前缀'],
+            ['剪切','vg_copy','复制权重并删除源'],
+            ['粘贴','vg_paste','粘贴权重'],
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -331,6 +338,45 @@ class QtVertexGroup(QWidget):
             index = selected_indexes[0].row()
             vg = obj.vertex_groups[index]
             obj.vertex_groups.remove(vg)
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_asign(self):
+        bpy.ops.kourin.vg_asign_new_group()
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_rm_select(self):
+        bpy.ops.kourin.vg_rm_select()
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_select_v(self):
+        mode_t=bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.vertex_group_select()
+        bpy.ops.object.mode_set(mode=mode_t)
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_copy(self):
+        # mode_t=bpy.context.object.mode
+        # bpy.ops.object.mode_set(mode='EDIT')
+        # bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.kourin.copy_vertex_group_weights()
+        # bpy.ops.object.mode_set(mode=mode_t)
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_paste(self):
+        # mode_t=bpy.context.object.mode
+        # bpy.ops.object.mode_set(mode='EDIT')
+        # bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.kourin.paste_vertex_group_weights()
+        # bpy.ops.object.mode_set(mode=mode_t)
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_trans_modi(self):
+        mode_t=bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.kourin.vg_trans_modi()
+        bpy.ops.object.mode_set(mode=mode_t)
         self.refresh_vertex_groups()
     def handle_vg_left(self,btname):
         print(btname)

@@ -20,6 +20,8 @@ from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import QByteArray
 import os
 
+from .qt_check import CheckWidget
+
 from ..utils.mio_sync_colsk import callback_show_only_shape_key, callback_update_shapekey, sync_active_shape_key
 
 from .ui_widgets import Button
@@ -42,6 +44,7 @@ def reg_ui_vrc_panel():
     bpy.types.TOPBAR_MT_editor_menus.append(menu_func)
     bpy.app.handlers.load_post.append(load_post_handler)
     # register_sculpt_warning_handler()
+    
     register_msgbus()
 def unreg_ui_vrc_panel():
     unregister_msgbus()
@@ -71,7 +74,39 @@ ctypes.windll.user32.SetWindowPos.argtypes = [
 qt_app    = None
 qt_window = None
 last_window_pos=None
+# 全局状态
+_last_active_pose_bone = None
+_polling = False
 
+def _on_pose_bone_changed(bone):
+    # 你的刷新逻辑，比如：
+    print("PoseBone 切换到:", bone.name if bone else None)
+    # callback_update_sha   pekey()
+    on_vertex_group_index_change()
+def _poll_active_pose_bone():
+    """定时器回调：检查 active_pose_bone"""
+    global _last_active_pose_bone, _polling
+    if not _polling:
+        return None   # 停止定时器
+
+    bone = bpy.context.active_pose_bone
+    if bone != _last_active_pose_bone:
+        _last_active_pose_bone = bone
+        _on_pose_bone_changed(bone)
+
+    return 0.1  # 0.1 秒后再跑自己一次
+
+def start_pose_bone_polling():
+    global _polling
+    if not _polling:
+        _polling = True
+        # first_interval 指定第一次延时
+        bpy.app.timers.register(_poll_active_pose_bone, first_interval=0.1)
+        print("开始轮询 active_pose_bone")
+def stop_pose_bone_polling():
+    global _polling
+    _polling = False
+    print("停止轮询 active_pose_bone")
 def register_msgbus():
      # 监听“激活物体”变化：使用 LayerObjects.active 而非 WindowManager.active_object :contentReference[oaicite:0]{index=0}
     bpy.msgbus.subscribe_rna(
@@ -121,7 +156,17 @@ def register_msgbus():
         args=(),
         notify=callback_show_only_shape_key,
     )
+    stop_pose_bone_polling()
+    start_pose_bone_polling()
     print("消息总线订阅已注册。")
+def on_bone_selection_change():
+    # 只在 Weight Paint 模式且激活对象是 Armature 时才刷新
+    obj = bpy.context.view_layer.objects.active
+    print(123)
+    if obj and obj.mode == 'PAINT_WEIGHT':
+        # 这里调用你已有的更新函数，比如刷新 shape key 或者整个 QT 窗口
+        if qt_window:
+            on_vertex_group_index_change(qt_window)
 def on_shape_key_index_change(qt_window_widget=None):
     if qt_window_widget is None:
         global qt_window
@@ -132,29 +177,33 @@ def on_shape_key_index_change(qt_window_widget=None):
         index=qt_window_widget.qt_shapekey.model.index((obj.active_shape_key_index))
         # print(qt_window.list_view.curr)
         qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
-        print('设置qt listview激活项',obj.active_shape_key_index)
-    sync_active_shape_key()
+        # print('设置qt listview激活项',obj.active_shape_key_index)
+    from .qt_global import GlobalProperty as GP
+    if obj.as_pointer() in GP.get().obj_sync_col and GP.get().obj_sync_col[obj.as_pointer()] is not None:
+        sync_active_shape_key()
     return None
 def on_vertex_group_index_change(qt_window_widget=None):
     if qt_window_widget is None:
         global qt_window
         qt_window_widget=qt_window
     obj = bpy.context.view_layer.objects.active
-    print(f'{qt_window_widget} {qt_window} vg index',obj.vertex_groups.active_index)
+    if obj is None:return None
+    if obj.type!='MESH':return None
+    # print(f'{qt_window_widget} {qt_window} vg index',obj.vertex_groups.active_index)
     if qt_window_widget is not None:
         index=qt_window_widget.qt_vertexgroup.model.index((obj.vertex_groups.active_index))
         # print(qt_window.list_view.curr)
         qt_window_widget.qt_vertexgroup.list_view.setCurrentIndex(index)
-        print('设置qt vg激活项',obj.vertex_groups)
+        # print('设置qt vg激活项',obj.vertex_groups)
     return None
 def on_active_or_mode_change():
     from .qt_global import GlobalProperty as GP
-    print('qt_window',qt_window,'物体切换')
+    # print('qt_window',qt_window,'物体切换')
     if qt_window is not None:
         obj=bpy.context.view_layer.objects.active
         qt_window.obj = obj
+        qt_window.qt_vertexgroup.refresh_vertex_groups()
         if obj.type=='MESH':
-            qt_window.qt_vertexgroup.refresh_vertex_groups()
             try:
                 col=GP.get().obj_sync_col[obj.as_pointer()]
             except:col=None
@@ -186,7 +235,7 @@ def on_active_or_mode_change():
   
 
 def mirror_x_changed(*args):    
-    print('qt_window',qt_window,bpy.context.view_layer.objects.active.name)
+    # print('qt_window',qt_window,bpy.context.view_layer.objects.active.name)
     if qt_window is not None:
         obj = bpy.context.view_layer.objects.active
         # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
@@ -204,6 +253,7 @@ def mirror_x_changed(*args):
         # qt_window.list_view.setCurrentIndex(index)
         # print('设置qt listview激活项',obj.active_shape_key_index)
 def unregister_msgbus():
+    stop_pose_bone_polling()
     bpy.msgbus.clear_by_owner(__name__)
     print("[Kourin]消息总线订阅已移除。")
 
@@ -213,6 +263,7 @@ from bpy.app.handlers import persistent
 def load_post_handler(dummy):
     # register_sculpt_warning_handler()
     # 每次新文件加载完成后，重新执行消息总线订阅
+    
     register_msgbus()
 class MirrorWarningWindow(QWidget):
     def __init__(self, message="", duration=30000, parent=None):
@@ -366,17 +417,25 @@ class MyQtWindow(QWidget):
 
         self.qt_shapekey=Qt_shapekey(self)
         self.qt_vertexgroup=QtVertexGroup(self)
+        self.qt_check=CheckWidget(self)
         toolbox = ToolBox()
         toolbox.addWidget('预处理',PreprocesseWigdet())
         toolbox.addWidget('顶点组',self.qt_vertexgroup)
         toolbox.addWidget('形态键',self.qt_shapekey)
+        toolbox.addWidget('检查',self.qt_check)
+
+        grip = QSizeGrip(self)
+        grip.setStyleSheet("width: 16px; height: 16px;")
 
         layout.addLayout(top_layout)
         layout.addWidget(toolbox)
-
+        # 将它放到布局右下
+        layout.addWidget(grip, alignment=Qt.AlignBottom | Qt.AlignRight)
 
         self.setLayout(layout)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        # flags = Qt.Window | Qt.CustomizeWindowHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint
+        # self.setWindowFlags(flags)
         def debug_layout_borders(widget, depth=0, colors=None):
             if colors is None:
                 # 自定义一组层级颜色（循环使用）
@@ -493,17 +552,6 @@ class ShowQtPanelOperator(bpy.types.Operator):
         bpy.context.view_layer.objects.active=None
         bpy.context.view_layer.objects.active=obj
         return {'FINISHED'}
-    # 添加一个 Blender 定时器，每 0.02 秒触发一次 modal，来让 Qt 得到事件处理机会
-        # wm = context.window_manager
-        # self._timer = wm.event_timer_add(0.02, window=context.window)
-        # wm.modal_handler_add(self)
-    #     return {'RUNNING_MODAL'}
-    # def modal(self, context, event):
-    #     global qt_app, qt_window,last_window_pos
-    #     qapp = QtWidgets.QApplication.instance()
-    #     qapp.processEvents(QEventLoop.AllEvents)  
-    #     qt_window.update() 
-    #     return {'PASS_THROUGH'}
 
 
 def menu_func(self, context):

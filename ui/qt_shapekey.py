@@ -72,43 +72,30 @@ class MenuButton(QPushButton):
                 action.setIcon(my_icon)
     def handle_NewShapeFromMix(self):
         bpy.ops.object.shape_key_add(from_mix=True)
-
     def handle_Mirror(self):
         bpy.ops.object.shape_key_mirror(use_topology=False)
-
     def handle_MirrorTopo(self):
         bpy.ops.object.shape_key_mirror(use_topology=True)
-
     def handle_JoinAs(self):
         bpy.ops.object.join_shapes()
-
     def handle_Trans(self):
         bpy.ops.object.shape_key_transfer()
-
     def handle_DelteAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
-
     def handle_ApplyAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-        # print(123)
     def handle_Lock(self):
         bpy.ops.object.shape_key_lock(action='LOCK')
-
     def handle_Unlock(self):
         bpy.ops.object.shape_key_lock(action='UNLOCK')
-
     def handle_MoveToTop(self):
         bpy.ops.object.shape_key_move(type='TOP')
-
     def handle_MoveToBottom(self):
         bpy.ops.object.shape_key_move(type='BOTTOM')
-
     def handle_ApplyToBasis(self):
         bpy.ops.cats_shapekey.shape_key_to_basis()
-
     def handle_RemoveUnuse(self):
         bpy.ops.cats_shapekey.shape_key_prune()
-
     def actionHandler(self):  
         from .ui_vrc_panel import qt_window,on_shape_key_index_change
         print('actionhandle')
@@ -116,7 +103,7 @@ class MenuButton(QPushButton):
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(func)
-        bpy.app.timers.register(self.parent_wd.update_shape_keys)
+        bpy.app.timers.register(self.parent_wd.update_shape_keys,first_interval=0.8)
         bpy.app.timers.register(partial(on_shape_key_index_change,qt_window))
 # partial(on_shape_key_index_change,self.parent_wg)
     def mousePressEvent(self, event):
@@ -640,8 +627,24 @@ class Qt_shapekey(QWidget):
 
         # 4. 刷新过滤器 & Blender 激活 key
         self.proxy.invalidateFilter()
-        bpy.app.timers.register(partial(on_shape_key_index_change, qt_window))
 
+        # —— 新增：选中并滚动到激活的 shape key —— #
+        obj = self.parent_wg.obj
+        idx = obj.active_shape_key_index
+        if idx != -1:
+            # 先把源 model 的行映射到 proxy
+            src_index  = self.model.index(idx, 0)
+            proxy_index = self.proxy.mapFromSource(src_index)
+
+            # 选中这一行
+            self.list_view.list_view.setCurrentIndex(proxy_index)
+
+            # 滚动列表：居中显示
+            self.list_view.list_view.scrollTo(proxy_index,
+                QAbstractItemView.PositionAtCenter
+            )
+        bpy.app.timers.register(partial(on_shape_key_index_change, qt_window))
+        # print('更新了sk',items,qt_window.obj,obj.type,obj.active_shape_key,qt_window.obj.data.shape_keys.key_blocks[:])
     # 以下为按钮和下拉框回调示例，需在类中实现
     def on_combobox_changed(self, index=None):
         from .ui_vrc_panel import qt_window
@@ -655,9 +658,7 @@ class Qt_shapekey(QWidget):
             # qt_window.obj.mio3sksync.syncs=None
         else:
             GP.get().obj_sync_col[qt_window.obj.as_pointer()]=bpy.data.collections[f'{selected_text}']
-        print(f'设置{selected_text},物体地址{qt_window.obj.as_pointer()}',GP.get().obj_sync_col[qt_window.obj.as_pointer()])
-            # qt_window.obj.mio3sksync.syncs=bpy.data.collections[f'{selected_text}']
-        # print(f"Selected item: {selected_text}")
+
         self.update_collection_items()
     def clear_sync_col(self):
         self.sync_col_combox.setCurrentIndex(-1)
@@ -705,6 +706,7 @@ class Qt_shapekey(QWidget):
                     color: black;
                 }
             """)
+        self.update_shape_keys()
     @undoable
     def handle_use_sk_edit(self,checked):
         bpy.context.object.use_shape_key_edit_mode = checked
@@ -722,6 +724,7 @@ class Qt_shapekey(QWidget):
                     color: black;
                 }
             """)
+        self.update_shape_keys()
     @undoable
     def handle_add_shape_key(self):
         bpy.ops.object.shape_key_add(from_mix=False)

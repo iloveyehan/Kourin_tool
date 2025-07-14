@@ -419,4 +419,5 @@ def is_sync_collection(obj):
 
 
 def has_shapekey(obj):
-    return obj.type=='MESH' and obj.active_shape_key is not None
+
+    return obj.type=='MESH' and obj.data.shape_keys is not None
