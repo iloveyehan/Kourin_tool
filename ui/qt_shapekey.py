@@ -413,6 +413,9 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[sk_name].value = new_val
     def eventFilter(self, obj, event):
         if hasattr(self,'_dragging'):
+            if self._dragging and event.type() in (QEvent.MouseMove, QEvent.MouseButtonPress):
+            # 这里 return True 就等于“事件我自己处理了”，下层（view）就收不到
+                return True
             if self._dragging and event.type() == QtCore.QEvent.MouseButtonRelease:
                 # 鼠标在任何地方释放，终止拖动
                 self._timer.stop()
