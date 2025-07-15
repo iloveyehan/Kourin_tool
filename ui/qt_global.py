@@ -16,6 +16,7 @@ class GlobalProperty:
         self.vg_mirror_search=False
 
         self._weight_cache={}
+        self._sk_search_map = {}  # key: obj.pointer, value: search text
         #同步集合缓存
         self.item_current_idx=0
         self.sync_col=None

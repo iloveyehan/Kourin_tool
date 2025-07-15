@@ -154,8 +154,11 @@ class Kourin_merge_armatures(bpy.types.Operator):
         return len(arms) == 2 and context.active_object in arms
     
     def execute(self, context):
+        bpy.ops.object.mode_set(mode='OBJECT')
         active_arm = context.active_object
         other_arm = [o for o in context.selected_objects if o != active_arm][0]
+        bpy.ops.object.select_all(action='SELECT')
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
         # —— 关键改动：遍历时立即排除重名骨骼 —— 
         dupes = set()
@@ -177,7 +180,7 @@ class Kourin_merge_armatures(bpy.types.Operator):
             unique_info[bone.name] = (parent, bone.use_connect)
 
         # 2) 删除 other_arm 中的重名骨骼
-        bpy.ops.object.mode_set(mode='OBJECT')
+        
         bpy.ops.object.select_all(action='DESELECT')
         context.view_layer.objects.active = other_arm
         other_arm.select_set(True)

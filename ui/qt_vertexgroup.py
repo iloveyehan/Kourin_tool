@@ -161,6 +161,7 @@ class QtVertexGroup(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.main_widget=parent
+        self._last_active_pose_bone=None
         # self.refresh_vertex_groups()
         self._build_ui()
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -478,7 +479,6 @@ class QtVertexGroup(QWidget):
             index = indexes[0].row()
             obj.vertex_groups.active_index = index
     def refresh_vertex_groups(self):
-        from .ui_vrc_panel import on_vertex_group_index_change
         """同步 Blender 的顶点组到 Qt"""
         obj = self.main_widget.obj
         if obj and obj.type == 'MESH':
@@ -488,7 +488,18 @@ class QtVertexGroup(QWidget):
         self.model.beginResetModel()
         self.model._items = names
         self.model.endResetModel()
-        on_vertex_group_index_change()
+        self.update_vertex_group_index()
+    def update_vertex_group_index(self):
+        # if qt_window_widget is None:
+        #     global qt_window
+        # qt_window_widget=qt_window
+        obj = bpy.context.view_layer.objects.active
+        if obj is None:return None
+        if obj.type!='MESH':return None
+        # if self.main_widget is not None:
+        index=self.model.index((obj.vertex_groups.active_index))
+        self.list_view.setCurrentIndex(index)
+        return None
     @undoable
     def handle_vg_mirror(self):
         bpy.ops.kourin.vg_mirror_weight()

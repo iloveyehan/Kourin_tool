@@ -75,38 +75,9 @@ qt_app    = None
 qt_window = None
 last_window_pos=None
 # 全局状态
-_last_active_pose_bone = None
-_polling = False
 
-def _on_pose_bone_changed(bone):
-    # 你的刷新逻辑，比如：
-    print("PoseBone 切换到:", bone.name if bone else None)
-    # callback_update_sha   pekey()
-    on_vertex_group_index_change()
-def _poll_active_pose_bone():
-    """定时器回调：检查 active_pose_bone"""
-    global _last_active_pose_bone, _polling
-    if not _polling:
-        return None   # 停止定时器
 
-    bone = bpy.context.active_pose_bone
-    if bone != _last_active_pose_bone:
-        _last_active_pose_bone = bone
-        _on_pose_bone_changed(bone)
 
-    return 0.1  # 0.1 秒后再跑自己一次
-
-def start_pose_bone_polling():
-    global _polling
-    if not _polling:
-        _polling = True
-        # first_interval 指定第一次延时
-        bpy.app.timers.register(_poll_active_pose_bone, first_interval=0.1)
-        print("开始轮询 active_pose_bone")
-def stop_pose_bone_polling():
-    global _polling
-    _polling = False
-    print("停止轮询 active_pose_bone")
 def register_msgbus():
      # 监听“激活物体”变化：使用 LayerObjects.active 而非 WindowManager.active_object :contentReference[oaicite:0]{index=0}
     bpy.msgbus.subscribe_rna(
@@ -156,17 +127,9 @@ def register_msgbus():
         args=(),
         notify=callback_show_only_shape_key,
     )
-    stop_pose_bone_polling()
-    start_pose_bone_polling()
+
     print("消息总线订阅已注册。")
-def on_bone_selection_change():
-    # 只在 Weight Paint 模式且激活对象是 Armature 时才刷新
-    obj = bpy.context.view_layer.objects.active
-    print(123)
-    if obj and obj.mode == 'PAINT_WEIGHT':
-        # 这里调用你已有的更新函数，比如刷新 shape key 或者整个 QT 窗口
-        if qt_window:
-            on_vertex_group_index_change(qt_window)
+
 def on_shape_key_index_change(qt_window_widget=None):
     if qt_window_widget is None:
         global qt_window
@@ -179,33 +142,39 @@ def on_shape_key_index_change(qt_window_widget=None):
         qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
         # print('设置qt listview激活项',obj.active_shape_key_index)
     from .qt_global import GlobalProperty as GP
-    if obj.as_pointer() in GP.get().obj_sync_col and GP.get().obj_sync_col[obj.as_pointer()] is not None:
+    gp=GP.get()
+    if obj.as_pointer() in gp.obj_sync_col and gp.obj_sync_col[obj.as_pointer()] is not None:
         sync_active_shape_key()
     return None
-def on_vertex_group_index_change(qt_window_widget=None):
-    if qt_window_widget is None:
-        global qt_window
-        qt_window_widget=qt_window
-    obj = bpy.context.view_layer.objects.active
-    if obj is None:return None
-    if obj.type!='MESH':return None
-    # print(f'{qt_window_widget} {qt_window} vg index',obj.vertex_groups.active_index)
-    if qt_window_widget is not None:
-        index=qt_window_widget.qt_vertexgroup.model.index((obj.vertex_groups.active_index))
-        # print(qt_window.list_view.curr)
-        qt_window_widget.qt_vertexgroup.list_view.setCurrentIndex(index)
-        # print('设置qt vg激活项',obj.vertex_groups)
-    return None
+
 def on_active_or_mode_change():
     from .qt_global import GlobalProperty as GP
     # print('qt_window',qt_window,'物体切换')
+    gp =GP.get()
     if qt_window is not None:
+        #sk过滤搜索词
+        # 保存旧对象的搜索词
+        if qt_window.obj and qt_window.qt_shapekey:
+            old_obj = qt_window.obj
+            old_ptr = old_obj.as_pointer()
+            search_text = qt_window.qt_shapekey.search_edit.text()
+            gp._sk_search_map[old_ptr] = search_text
+
         obj=bpy.context.view_layer.objects.active
         qt_window.obj = obj
+        ptr_obj_new = obj.as_pointer()
         qt_window.qt_vertexgroup.refresh_vertex_groups()
+
+        # 如果有保存过的搜索内容，则恢复
+        if ptr_obj_new in gp._sk_search_map:
+            search_text = gp._sk_search_map[ptr_obj_new]
+            qt_window.qt_shapekey.search_edit.setText(search_text)
+        else:
+            qt_window.qt_shapekey.search_edit.setText("")
+
         if obj.type=='MESH':
             try:
-                col=GP.get().obj_sync_col[obj.as_pointer()]
+                col=gp.obj_sync_col[obj.as_pointer()]
             except:col=None
             # print('激活物体',qt_window.obj)
             if obj.data.shape_keys :
@@ -248,12 +217,9 @@ def mirror_x_changed(*args):
                 refocus_blender_window()
     on_active_or_mode_change()
 
-        # index=qt_window.model.index((obj.active_shape_key_index))
-        # # print(qt_window.list_view.curr)
-        # qt_window.list_view.setCurrentIndex(index)
-        # print('设置qt listview激活项',obj.active_shape_key_index)
+
 def unregister_msgbus():
-    stop_pose_bone_polling()
+    # stop_pose_bone_polling()
     bpy.msgbus.clear_by_owner(__name__)
     print("[Kourin]消息总线订阅已移除。")
 
@@ -339,8 +305,8 @@ ensure_pyside6_importable()
 
 
 # ========= 更新窗口层级函数 ===========
-def update_window_state():
-    # print('更新windows层级')
+
+def update_window_layer():
     global qt_window
 
     # 取 Blender 前台句柄
@@ -363,9 +329,6 @@ def update_window_state():
             0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
         )
-    # print(bpy.context.active_object)
-    # QTimer.singleShot(10, update_window_state)
-# 定义一个PySide6窗口
 
 
 
@@ -455,14 +418,28 @@ class MyQtWindow(QWidget):
 
         # 用持久化 QTimer 取代 singleShot
         self._timer = QTimer(self)
-        self._timer.timeout.connect(update_window_state)
-        self._timer.start(20)
+        self._timer.timeout.connect(self.update_window_state)
+        self._timer.start(100)
 
         # 用于记录鼠标拖动时的初始位置
         self.dragging = False
         self.offset = QPoint()
-
-
+    def update_window_state(self):
+    # print('更新windows层级')
+        bpy.app.timers.register(self._qt_poll_active_pose_bone)
+        update_window_layer()
+        
+        
+    def _qt_poll_active_pose_bone(self):
+        """用 Qt 的定时器来检查 active_pose_bone"""
+        # global _last_active_pose_bone
+        bone = bpy.context.active_pose_bone
+        if bone != self.qt_vertexgroup._last_active_pose_bone:
+            # 更新全局状态并触发回调
+            
+            self.qt_vertexgroup_last_active_pose_bone = bone
+            self.qt_vertexgroup.update_vertex_group_index()
+            # _on_pose_bone_changed(bone)
     def mousePressEvent(self, event):
         # print(bpy.data.objects['Dress'].use_mesh_mirror_x)
         if event.button() == Qt.LeftButton:
