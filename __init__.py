@@ -10,7 +10,7 @@ from bpy_types import Operator
 
 
 from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_installed
-from .panels.AddonPanels import AriEdgeSmoothSettings,AriTransferPositionSettings
+# from .panels.AddonPanels import AriEdgeSmoothSettings,AriTransferPositionSettings
 from .reg import keys
 from .update import KourinCheckUpdateOperator
 from . import zh_CN
@@ -59,10 +59,10 @@ class InstallPysideOperator(Operator):
             self.report({'ERROR'}, str(e))
         return {'FINISHED'}
 _addon_properties = {
-bpy.types.Scene: {
-        "ari_edge_smooth_settings": bpy.props.PointerProperty(type=AriEdgeSmoothSettings),
-        'ari_transfer_position_settings':bpy.props.PointerProperty(type=AriTransferPositionSettings)
-},
+# bpy.types.Scene: {
+        # "ari_edge_smooth_settings": bpy.props.PointerProperty(type=AriEdgeSmoothSettings),
+        # 'ari_transfer_position_settings':bpy.props.PointerProperty(type=AriTransferPositionSettings)
+# },
 }
 
 # support adding properties in a declarative way
@@ -125,7 +125,7 @@ if is_pyside6_installed():
     from .operators.color_selector import reg_color_selector,unreg_color_selector
     from .operators.vrc_bone_ops import reg_vrc_bone_ops,unreg_vrc_bone_ops
     # from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
-    from .panels.AddonPanels import reg_menu,unreg_menu
+
     from .preference.AddonPreferences import reg_pref,unreg_pref
     from .panels.main_button import main_button_register,main_button_unregister
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
@@ -139,7 +139,7 @@ if is_pyside6_installed():
         main_button_register()
         reg_trans()
         reg_color_selector()
-        reg_menu()
+
         reg_pref()
         reg_ui_vrc_panel()
         add_properties(_addon_properties)
@@ -152,7 +152,7 @@ if is_pyside6_installed():
         unreg_trans()
         unreg_vrc_bone_ops()
         unreg_color_selector()
-        unreg_menu()
+
         unreg_pref()
         unreg_draw_info()
 else:
