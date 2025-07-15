@@ -93,9 +93,9 @@ class MenuButton(QPushButton):
     def handle_MoveToBottom(self):
         bpy.ops.object.shape_key_move(type='BOTTOM')
     def handle_ApplyToBasis(self):
-        bpy.ops.cats_shapekey.shape_key_to_basis()
+        bpy.ops.kourin.shape_key_to_basis()
     def handle_RemoveUnuse(self):
-        bpy.ops.cats_shapekey.shape_key_prune()
+        bpy.ops.kourin.shape_key_prune()
     def actionHandler(self):  
         from .ui_vrc_panel import qt_window,on_shape_key_index_change
         print('actionhandle')
@@ -368,8 +368,21 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         if event.type() == QtCore.QEvent.MouseButtonRelease:
             regions = self.calculate_regions(option)
             if regions["checkbox"].contains(event.pos()):
-                checked = model.data(index, ListModel.CheckedRole)
-                model.setData(index, not checked, ListModel.CheckedRole)
+                # 1) 翻转 checked 状态
+                old_checked = model.data(index, ListModel.CheckedRole)
+                new_checked = not old_checked
+                model.setData(index, new_checked, ListModel.CheckedRole)
+
+                # 2) 根据 checked 将 value 设为 1.0 或 0.0
+                new_val = 1.0 if new_checked else 0.0
+                model.setData(index, new_val, ListModel.ValueRole)
+
+                # 3) 如果存在 ShapeKey，更新对应的 key_blocks
+                if self.qt_window.obj is not None:
+                    # 用 NameRole 拿到当前行的 shape key 名称
+                    sk_name = model.data(index, ListModel.NameRole)
+                    self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
+
                 return True
         # 先算出各区域
         regions = self.calculate_regions(option)

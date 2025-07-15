@@ -19,7 +19,7 @@ bl_info = {
     "name": "Kourin_tool",
     "author": "Cupcko[649730016@qq.com]",
     "blender": (3, 5, 0),
-    "version": (1, 1, 1),
+    "version": (1, 1, 2),
     "description": "This is a template for building addons",
     "warning": "",
     "doc_url": "[documentation url]",
@@ -131,8 +131,10 @@ if is_pyside6_installed():
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
     from .operators.draw import reg_draw_info,unreg_draw_info
     from .operators.vertex_group import reg_vrc_vg_ops,unreg_vrc_vg_ops
+    from .operators.shapkey import reg_vrc_sk_ops,unreg_vrc_sk_ops
     def reg_all():
         reg_vrc_vg_ops()
+        reg_vrc_sk_ops()
         reg_vrc_bone_ops()
         reg_draw_info()
         reg_origin()
@@ -145,6 +147,7 @@ if is_pyside6_installed():
         add_properties(_addon_properties)
     def unreg_all():
         unreg_vrc_vg_ops()
+        unreg_vrc_sk_ops()
         main_button_unregister()
         remove_properties(_addon_properties)
         unreg_ui_vrc_panel()
