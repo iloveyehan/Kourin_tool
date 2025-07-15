@@ -135,7 +135,7 @@ def on_shape_key_index_change(qt_window_widget=None):
         global qt_window
         qt_window_widget=qt_window
     obj = bpy.context.view_layer.objects.active
-    print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
+    # print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
     if qt_window_widget is not None:
         index=qt_window_widget.qt_shapekey.model.index((obj.active_shape_key_index))
         # print(qt_window.list_view.curr)
