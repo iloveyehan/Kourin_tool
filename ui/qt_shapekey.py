@@ -105,7 +105,6 @@ class MenuButton(QPushButton):
         bpy.app.timers.register(func)
         bpy.app.timers.register(self.parent_wd.update_shape_keys,first_interval=0.8)
         bpy.app.timers.register(partial(on_shape_key_index_change,qt_window))
-# partial(on_shape_key_index_change,self.parent_wg)
     def mousePressEvent(self, event):
         # 如果是左键点击，显示菜单
         if event.button() == Qt.LeftButton:
@@ -190,10 +189,9 @@ class ListModel(QtCore.QAbstractListModel):
         return True
 class ItemDelegate(QtWidgets.QStyledItemDelegate):
     # DRAG_ROLE       = QtCore.Qt.UserRole + 99
-    def __init__(self, parent=None, parent_wg=None,value_min=0.0, value_max=1.0,sensitivity=0.005):
+    def __init__(self, parent=None, parent_wg=None,value_min=0.0, value_max=1.0,sensitivity=0.05):
         super().__init__(parent)
-        self.parent_wg=parent_wg
-        self.obj=parent_wg.obj
+        self.qt_window=parent_wg
         self.value_min = value_min  # 最小值
         self.value_max = value_max  # 最大值
         # 每像素数值增量
@@ -238,8 +236,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         }
 
     def paint(self, painter, option, index):
-        # a=time()
-        # print('触发绘图事件',a-self.parent_wg.b)
         model = index.model()
         regions = self.calculate_regions(option)
 
@@ -336,14 +332,16 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         # view = self.parent()  # 你在构造 delegate 时，parent 就是 list_view
         # view.closeEditor(editor, QtWidgets.QAbstractItemDelegate.NoHint)
     def setModelData(self, editor, model, index):
+        
         # print('setModelData')
         if isinstance(editor, QtWidgets.QLineEdit):
+            self.qt_window.get_obj()
             field = editor.property("field")
             if field == "name":
                 model.setData(index, editor.text(), ListModel.NameRole)
                 print('editor.text()',str(index.data(ListModel.NameRole)))
-                if self.parent().parent().parent_wg.obj is not None:
-                        self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
+                if self.qt_window.obj is not None:
+                        self.qt_window.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
                 
             elif field == "value":
                 try:
@@ -352,8 +350,8 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                     clamped_value = max(self.value_min, min(raw_value, self.value_max))
                     model.setData(index, clamped_value, ListModel.ValueRole)
                     # print('clamped_value',clamped_value)
-                    if self.parent().parent().parent_wg.obj is not None:
-                        self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
+                    if self.qt_window.obj is not None:
+                        self.qt_window.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
                 except ValueError:
                     pass
             editor.setFocus(QtCore.Qt.OtherFocusReason)
@@ -410,7 +408,8 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         new_val = max(self.value_min, min(new_val, self.value_max))
         self._drag_model.setData(self._drag_index, new_val, ListModel.ValueRole)
         sk_name = self._drag_model.data(self._drag_index, ListModel.NameRole)
-        self.parent().parent().parent_wg.obj.data.shape_keys.key_blocks[sk_name].value = new_val
+        self.qt_window.get_obj()
+        self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
     def eventFilter(self, obj, event):
         if hasattr(self,'_dragging'):
             if self._dragging and event.type() in (QEvent.MouseMove, QEvent.MouseButtonPress):
@@ -460,8 +459,7 @@ class Qt_shapekey(QWidget):
     def __init__(self, parent=None):
         from .ui_widgets import Button
         super().__init__(parent)
-        self.parent_wg = parent
-
+        self.qt_window=parent
         # 主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(3,3,3,3)
@@ -579,9 +577,10 @@ class Qt_shapekey(QWidget):
             return
         name = current.data(Qt.DisplayRole)
         # 找到对应的 index
-        idx = self.parent_wg.obj.data.shape_keys.key_blocks.find(name)
+        self.qt_window.get_obj()
+        idx = self.qt_window.obj.data.shape_keys.key_blocks.find(name)
         if idx != -1:
-            self.parent_wg.obj.active_shape_key_index = idx
+            self.qt_window.obj.active_shape_key_index = idx
 
     def update_collection_items(self):
         # 保存并恢复当前
@@ -608,16 +607,17 @@ class Qt_shapekey(QWidget):
         self.sync_col_combox.blockSignals(False)
 
     def update_shape_keys(self, new_sks=None):
-        from .ui_vrc_panel import qt_window, on_shape_key_index_change
+        from .ui_vrc_panel import  on_shape_key_index_change
 
-        if not qt_window:
-            return
+        # if not qt_window:
+        #     return
 
         # 1. 取出当前对象的所有 shape keys
-        if not has_shapekey(qt_window.obj):
+        self.qt_window.get_obj()
+        if not has_shapekey(self.qt_window.obj):
             items=[]
         else:
-            sk_blocks = qt_window.obj.data.shape_keys.key_blocks
+            sk_blocks = self.qt_window.obj.data.shape_keys.key_blocks
 
             # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
             items = [Item(sk.name, sk.value) for sk in sk_blocks]
@@ -632,8 +632,7 @@ class Qt_shapekey(QWidget):
         self.proxy.invalidateFilter()
 
         # —— 新增：选中并滚动到激活的 shape key —— #
-        obj = self.parent_wg.obj
-        idx = obj.active_shape_key_index
+        idx = self.qt_window.obj.active_shape_key_index
         if idx != -1:
             # 先把源 model 的行映射到 proxy
             src_index  = self.model.index(idx, 0)
@@ -646,21 +645,18 @@ class Qt_shapekey(QWidget):
             self.list_view.list_view.scrollTo(proxy_index,
                 QAbstractItemView.PositionAtCenter
             )
-        bpy.app.timers.register(partial(on_shape_key_index_change, qt_window))
-        # print('更新了sk',items,qt_window.obj,obj.type,obj.active_shape_key,qt_window.obj.data.shape_keys.key_blocks[:])
-    # 以下为按钮和下拉框回调示例，需在类中实现
+        bpy.app.timers.register(partial(on_shape_key_index_change, self.qt_window))
+# 以下为按钮和下拉框回调示例，需在类中实现
     def on_combobox_changed(self, index=None):
-        from .ui_vrc_panel import qt_window
         from .qt_global import GlobalProperty as GP
         # print('更换同步集合')
         # 获取当前选中的文本
         selected_text = self.sync_col_combox.currentText()
-        
+        self.qt_window.get_obj()
         if selected_text =='':
-            GP.get().obj_sync_col[qt_window.obj.as_pointer()]=None
-            # qt_window.obj.mio3sksync.syncs=None
+            GP.get().obj_sync_col[self.qt_window.obj.as_pointer()]=None
         else:
-            GP.get().obj_sync_col[qt_window.obj.as_pointer()]=bpy.data.collections[f'{selected_text}']
+            GP.get().obj_sync_col[self.qt_window.obj.as_pointer()]=bpy.data.collections[f'{selected_text}']
 
         self.update_collection_items()
     def clear_sync_col(self):
@@ -688,10 +684,11 @@ class Qt_shapekey(QWidget):
         item_text = self.model.data(index, Qt.DisplayRole)
         # print(f"点击了项: {item_text}")
         # 查找形态键的索引
-        index = self.parent_wg.obj.data.shape_keys.key_blocks.find(item_text)
+        self.qt_window.get_obj()
+        index = self.qt_window.obj.data.shape_keys.key_blocks.find(item_text)
         # 设置激活的形态键
         if index != -1:
-            self.parent_wg.obj.active_shape_key_index = index
+            self.qt_window.obj.active_shape_key_index = index
     @undoable
     def handle_show_only_sk(self,checked):
         bpy.context.object.show_only_shape_key = checked

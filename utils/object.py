@@ -22,8 +22,8 @@ def get_pivot_position():
 
 
 # 调用函数
-pivot_pos = get_pivot_position()
-print(f"Pivot Position: {pivot_pos}")
+# pivot_pos = get_pivot_position()
+# print(f"Pivot Position: {pivot_pos}")
 
 
 def compensate_children(obj, old_matrix, new_matrix):
@@ -81,3 +81,9 @@ def set_obj_origin(obj, mx, bm=None):
     # 如果对象类型为网格，则更新网格数据
     if obj.type == 'MESH':
         obj.data.update()
+
+def obj_from_ptr(ptr):
+    for obj in bpy.data.objects:
+        if obj.as_pointer() == ptr:
+            return obj
+    return None

@@ -20,6 +20,8 @@ from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import QByteArray
 import os
 
+from ..utils.object import obj_from_ptr
+
 from .qt_check import CheckWidget
 
 from ..utils.mio_sync_colsk import callback_show_only_shape_key, callback_update_shapekey, sync_active_shape_key
@@ -131,19 +133,21 @@ def register_msgbus():
     print("消息总线订阅已注册。")
 
 def on_shape_key_index_change(qt_window_widget=None):
+    # print(111)
     if qt_window_widget is None:
         global qt_window
         qt_window_widget=qt_window
     obj = bpy.context.view_layer.objects.active
-    # print(f'{qt_window_widget} {qt_window} sk index',obj.active_shape_key_index)
+    qt_window_widget.obj_ptr=obj.as_pointer()
+    qt_window_widget.get_obj()
     if qt_window_widget is not None:
-        index=qt_window_widget.qt_shapekey.model.index((obj.active_shape_key_index))
-        # print(qt_window.list_view.curr)
+        index=qt_window_widget.qt_shapekey.model.index((qt_window_widget.obj.active_shape_key_index))
+
         qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
-        # print('设置qt listview激活项',obj.active_shape_key_index)
+
     from .qt_global import GlobalProperty as GP
     gp=GP.get()
-    if obj.as_pointer() in gp.obj_sync_col and gp.obj_sync_col[obj.as_pointer()] is not None:
+    if qt_window_widget.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window_widget.obj_ptr] is not None:
         sync_active_shape_key()
     return None
 
@@ -154,32 +158,32 @@ def on_active_or_mode_change():
     if qt_window is not None:
         #sk过滤搜索词
         # 保存旧对象的搜索词
+        qt_window.get_obj()
         if qt_window.obj and qt_window.qt_shapekey:
-            old_obj = qt_window.obj
-            old_ptr = old_obj.as_pointer()
             search_text = qt_window.qt_shapekey.search_edit.text()
-            gp._sk_search_map[old_ptr] = search_text
-
+            gp._sk_search_map[qt_window.obj_ptr] = search_text
+        #新地址
         obj=bpy.context.view_layer.objects.active
-        qt_window.obj = obj
-        ptr_obj_new = obj.as_pointer()
+        qt_window.obj_ptr=obj.as_pointer()
+        qt_window.get_obj()
+        # ptr_obj_new = obj.as_pointer()
         qt_window.qt_vertexgroup.refresh_vertex_groups()
 
         # 如果有保存过的搜索内容，则恢复
-        if ptr_obj_new in gp._sk_search_map:
-            search_text = gp._sk_search_map[ptr_obj_new]
+        if qt_window.obj_ptr in gp._sk_search_map:
+            search_text = gp._sk_search_map[qt_window.obj_ptr]
             qt_window.qt_shapekey.search_edit.setText(search_text)
         else:
             qt_window.qt_shapekey.search_edit.setText("")
 
-        if obj.type=='MESH':
+        if qt_window.obj.type=='MESH':
             try:
-                col=gp.obj_sync_col[obj.as_pointer()]
+                col=gp.obj_sync_col[qt_window.obj_ptr]
             except:col=None
             # print('激活物体',qt_window.obj)
-            if obj.data.shape_keys :
-                qt_window.qt_shapekey.show_only_sk.setChecked(obj.show_only_shape_key)
-                s_ks= obj.data.shape_keys.key_blocks
+            if qt_window.obj.data.shape_keys :
+                qt_window.qt_shapekey.show_only_sk.setChecked(qt_window.obj.show_only_shape_key)
+                s_ks= qt_window.obj.data.shape_keys.key_blocks
                 
                 qt_window.s_ks=s_ks
                 qt_window.qt_shapekey.update_shape_keys(s_ks)
@@ -207,10 +211,12 @@ def mirror_x_changed(*args):
     # print('qt_window',qt_window,bpy.context.view_layer.objects.active.name)
     if qt_window is not None:
         obj = bpy.context.view_layer.objects.active
+        qt_window.obj_ptr=obj.as_pointer()
+        qt_window.get_obj()
         # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
         if (obj.mode in  ['SCULPT','EDIT']):
             # print('模式',obj.mode)
-            if not getattr(obj, 'use_mesh_mirror_x', True):
+            if not getattr(qt_window.obj, 'use_mesh_mirror_x', True):
   
                 warning_window = MirrorWarningWindow("打开镜像!!",parent=qt_window, duration=3000)
                 warning_window.show_centered_on_blender()
@@ -337,7 +343,8 @@ def update_window_layer():
 class MyQtWindow(QWidget):
     def __init__(self,hwnd,last_pos=None):
         super().__init__()
-        self.obj=None
+        self.obj_ptr=bpy.context.view_layer.objects.active.as_pointer()
+        self.obj=self.get_obj()
         self.s_ks=None
         self.b=0
         self.setWindowTitle("vrc panel")
@@ -428,7 +435,8 @@ class MyQtWindow(QWidget):
     # print('更新windows层级')
         bpy.app.timers.register(self._qt_poll_active_pose_bone)
         update_window_layer()
-        
+    def get_obj(self):
+        self.obj=obj_from_ptr(self.obj_ptr)
         
     def _qt_poll_active_pose_bone(self):
         """用 Qt 的定时器来检查 active_pose_bone"""
@@ -526,6 +534,8 @@ class ShowQtPanelOperator(bpy.types.Operator):
         
         #刷新视图,更新deps
         obj = bpy.context.view_layer.objects.active
+        qt_window.obj_ptr=obj.as_pointer()
+        qt_window.get_obj()
         bpy.context.view_layer.objects.active=None
         bpy.context.view_layer.objects.active=obj
         return {'FINISHED'}
