@@ -131,25 +131,60 @@ def register_msgbus():
     )
 
     print("消息总线订阅已注册。")
-
 def on_shape_key_index_change(qt_window_widget=None):
-    # print(111)
+    print('刷新 sk index')
+    # 如果外部没传进来，就用全局的 qt_window
     if qt_window_widget is None:
         global qt_window
-        qt_window_widget=qt_window
+        qt_window_widget = qt_window
+
+    # 确保 obj_ptr 和 obj 都是最新的
     obj = bpy.context.view_layer.objects.active
-    qt_window_widget.obj_ptr=obj.as_pointer()
+    qt_window_widget.obj_ptr = obj.as_pointer()
     qt_window_widget.get_obj()
-    if qt_window_widget is not None:
-        index=qt_window_widget.qt_shapekey.model.index((qt_window_widget.obj.active_shape_key_index))
 
-        qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
+    # —— 核心：构造 index 并映射 —— #
+    # 1. 拿到当前 active_shape_key_index
+    idx = qt_window_widget.obj.active_shape_key_index
+    # 2. 在源模型里生成 QModelIndex （row, column）
+    src_index = qt_window_widget.qt_shapekey.model.index(idx, 0)
+    # 3. 再通过代理转到视图上用的索引
+    proxy_index = qt_window_widget.qt_shapekey.proxy.mapFromSource(src_index)
 
+    # 4. 把它设置到真正的 QListView 里
+    lv = qt_window_widget.qt_shapekey.list_view.list_view
+    if proxy_index.isValid():
+        lv.setCurrentIndex(proxy_index)
+        # 可选：滚动到可视区中心
+        # lv.scrollTo(proxy_index, QtWidgets.QAbstractItemView.PositionAtCenter)
+
+    # —— 同步集合里的 shape key —— #
     from .qt_global import GlobalProperty as GP
-    gp=GP.get()
-    if qt_window_widget.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window_widget.obj_ptr] is not None:
+    gp = GP.get()
+    if (qt_window_widget.obj_ptr in gp.obj_sync_col and
+            gp.obj_sync_col[qt_window_widget.obj_ptr] is not None):
         sync_active_shape_key()
+
     return None
+
+# def on_shape_key_index_change(qt_window_widget=None):
+#     print('刷新sk index')
+#     if qt_window_widget is None:
+#         global qt_window
+#         qt_window_widget=qt_window
+#     obj = bpy.context.view_layer.objects.active
+#     qt_window_widget.obj_ptr=obj.as_pointer()
+#     qt_window_widget.get_obj()
+#     if qt_window_widget is not None:
+#         index=qt_window_widget.qt_shapekey.model.index((qt_window_widget.obj.active_shape_key_index))
+
+#         qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
+
+#     from .qt_global import GlobalProperty as GP
+#     gp=GP.get()
+#     if qt_window_widget.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window_widget.obj_ptr] is not None:
+#         sync_active_shape_key()
+#     return None
 
 def on_active_or_mode_change():
     from .qt_global import GlobalProperty as GP

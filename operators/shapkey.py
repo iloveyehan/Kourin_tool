@@ -47,7 +47,7 @@ class RenameShapeKeyApplier(bpy.types.Operator):
 
         # Create a map of key : [keys relative to key]
         # Effectively the reverse of the key.relative_key relation
-        reverse_relative_map = ShapeKeyApplier.ReverseRelativeMap(mesh)
+        reverse_relative_map = RenameShapeKeyApplier.ReverseRelativeMap(mesh)
 
         # new_basis_shapekey will only be included if it's relative to itself (new_basis_shapekey cannot be the first shape key as poll() ensures
         # that the index of the active shape key is greater than 0)
@@ -80,7 +80,7 @@ class RenameShapeKeyApplier(bpy.types.Operator):
         if new_basis_shapekey.value == 0.0:
             new_basis_shapekey.value = 1.0
 
-        ShapeKeyApplier.apply_key_to_basis(mesh=mesh,
+        RenameShapeKeyApplier.apply_key_to_basis(mesh=mesh,
                                            new_basis_shapekey=new_basis_shapekey,
                                            keys_relative_recursive_to_new_basis=keys_relative_recursive_to_new_basis,
                                            keys_relative_recursive_to_basis=keys_relative_recursive_to_old_basis)
@@ -276,7 +276,7 @@ class RenameShapeKeyApplier(bpy.types.Operator):
         #                   vertex_weights.append(weight)
         if new_basis_shapekey_vertex_group:
             # Need to isolate the active shape key, so that when a new shape is created from mix, it's only the active shape key
-            restore_function = ShapeKeyApplier.isolate_active_shape(mesh)
+            restore_function = RenameShapeKeyApplier.isolate_active_shape(mesh)
             # This new shape key has the effect of new_basis.value and new_basis.vertex_group applied
             new_basis_mixed = mesh.shape_key_add(name="temp shape (you shouldn't see this)", from_mix=True)
             # Restore whatever got changed in order to isolate the active shape key

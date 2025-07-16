@@ -2,6 +2,7 @@ import ctypes
 from math import inf
 from pathlib import Path
 import sys
+import time
 import bpy
 from functools import partial
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -70,30 +71,43 @@ class MenuButton(QPushButton):
             if icon_path !='':
                 my_icon = icon_from_dat(icon_path)
                 action.setIcon(my_icon)
+    @undoable
     def handle_NewShapeFromMix(self):
         bpy.ops.object.shape_key_add(from_mix=True)
+    @undoable
     def handle_Mirror(self):
         bpy.ops.object.shape_key_mirror(use_topology=False)
+    @undoable
     def handle_MirrorTopo(self):
         bpy.ops.object.shape_key_mirror(use_topology=True)
+    @undoable
     def handle_JoinAs(self):
         bpy.ops.object.join_shapes()
+    @undoable
     def handle_Trans(self):
         bpy.ops.object.shape_key_transfer()
+    @undoable
     def handle_DelteAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=False)
+    @undoable
     def handle_ApplyAll(self):
         bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+    @undoable
     def handle_Lock(self):
         bpy.ops.object.shape_key_lock(action='LOCK')
+    @undoable
     def handle_Unlock(self):
         bpy.ops.object.shape_key_lock(action='UNLOCK')
+    @undoable
     def handle_MoveToTop(self):
         bpy.ops.object.shape_key_move(type='TOP')
+    @undoable
     def handle_MoveToBottom(self):
         bpy.ops.object.shape_key_move(type='BOTTOM')
+    @undoable
     def handle_ApplyToBasis(self):
         bpy.ops.kourin.shape_key_to_basis()
+    @undoable
     def handle_RemoveUnuse(self):
         bpy.ops.kourin.shape_key_prune()
     def actionHandler(self):  
@@ -143,6 +157,7 @@ class ListModel(QtCore.QAbstractListModel):
         self.value_min = value_min  # 新增最小值属性
         self.value_max = value_max  # 新增最大值属性
     def data(self, index, role=QtCore.Qt.DisplayRole):
+        
         if not index.isValid() or index.row() >= len(self._items):
             return None
             
@@ -262,7 +277,8 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         opt = QtWidgets.QStyleOptionButton()
         opt.rect = regions["checkbox"]
         opt.state = QtWidgets.QStyle.State_Enabled
-        if model.data(index, ListModel.CheckedRole):
+        # if model.data(index, ListModel.CheckedRole):
+        if model.data(index, ListModel.ValueRole) >= 0.5:
             opt.state |= QtWidgets.QStyle.State_On
         else:
             opt.state |= QtWidgets.QStyle.State_Off
@@ -292,7 +308,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         if regions["name"].contains(click_pos):
             name_data = index.data(ListModel.NameRole)
             # print(f'Creating name editor with data: {name_data}')  # 调试输出
-            editor = QtWidgets.QLineEdit(parent)
+            editor = QLineEdit(parent)
             # print('index.data(ListModel.NameRole)',index.data(ListModel.NameRole))
             self.sk_name=index.data(ListModel.NameRole)
             editor.setText(index.data(ListModel.NameRole))
@@ -306,7 +322,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             
         # 数值编辑器
         if regions["value"].contains(click_pos):
-            editor = QtWidgets.QLineEdit(parent)
+            editor = QLineEdit(parent)
             # 设置带范围的验证器（最小值，最大值，小数位数）
             editor.setValidator(QtGui.QDoubleValidator(
                 -inf, 
@@ -341,8 +357,9 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 model.setData(index, editor.text(), ListModel.NameRole)
                 print('editor.text()',str(index.data(ListModel.NameRole)))
                 if self.qt_window.obj is not None:
-                        self.qt_window.obj.data.shape_keys.key_blocks[self.sk_name].name=editor.text()
-                
+                        sk=self.qt_window.obj.data.shape_keys.key_blocks[self.sk_name]
+                        sk.name=editor.text()#避免重名,再次设置
+                        model.setData(index, sk.name, ListModel.NameRole)
             elif field == "value":
                 try:
                     raw_value = float(editor.text())
@@ -365,27 +382,22 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
 
     def editorEvent(self, event, model, option, index):
         # print('editorEvent')
-        if event.type() == QtCore.QEvent.MouseButtonRelease:
-            regions = self.calculate_regions(option)
-            if regions["checkbox"].contains(event.pos()):
-                # 1) 翻转 checked 状态
-                old_checked = model.data(index, ListModel.CheckedRole)
-                new_checked = not old_checked
-                model.setData(index, new_checked, ListModel.CheckedRole)
-
-                # 2) 根据 checked 将 value 设为 1.0 或 0.0
-                new_val = 1.0 if new_checked else 0.0
-                model.setData(index, new_val, ListModel.ValueRole)
-
-                # 3) 如果存在 ShapeKey，更新对应的 key_blocks
-                if self.qt_window.obj is not None:
-                    # 用 NameRole 拿到当前行的 shape key 名称
-                    sk_name = model.data(index, ListModel.NameRole)
-                    self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
-
-                return True
+        
+            
         # 先算出各区域
         regions = self.calculate_regions(option)
+        if regions["checkbox"].contains(event.pos()):
+            a=time.time()
+            if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                value = model.data(index, ListModel.ValueRole)
+                new_val = 0.0 if value >= 0.5 else 1.0
+                model.setData(index, new_val, ListModel.ValueRole)
+
+                if self.qt_window.obj is not None:
+                    sk_name = model.data(index, ListModel.NameRole)
+                    self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
+                return True
+            print(time.time()-a)
         # 只关注 value 区域
         if regions["value"].contains(event.pos()):
             if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
@@ -423,6 +435,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         sk_name = self._drag_model.data(self._drag_index, ListModel.NameRole)
         self.qt_window.get_obj()
         self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
+
     def eventFilter(self, obj, event):
         if hasattr(self,'_dragging'):
             if self._dragging and event.type() in (QEvent.MouseMove, QEvent.MouseButtonPress):
@@ -586,9 +599,24 @@ class Qt_shapekey(QWidget):
         self.update_collection_items()
         self.update_shape_keys()
     def on_selection_changed(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex):
+        # --- debug begin ---
+        print(f"[on_selection_changed] current      : row={current.row()}, model={current.model()}")
+        print(f"[on_selection_changed] proxy        : {self.proxy}")
+        print(f"[on_selection_changed] proxy model  : {self.list_view.list_view.model()}")
+        # --- debug end ---
         if not current.isValid():
             return
-        name = current.data(Qt.DisplayRole)
+        # name = current.data(Qt.DisplayRole)
+        # ⚠️ 修复 index 来自 proxy model 的问题
+        if current.model()==self.model:
+            print('选择=模型一样')
+            src_index=current
+        else:
+            src_index = self.proxy.mapToSource(current)
+        if not src_index.isValid():
+            return
+
+        name = src_index.data(Qt.DisplayRole)
         # 找到对应的 index
         self.qt_window.get_obj()
         idx = self.qt_window.obj.data.shape_keys.key_blocks.find(name)
@@ -622,8 +650,7 @@ class Qt_shapekey(QWidget):
     def update_shape_keys(self, new_sks=None):
         from .ui_vrc_panel import  on_shape_key_index_change
 
-        # if not qt_window:
-        #     return
+        print('更新sk列表')
 
         # 1. 取出当前对象的所有 shape keys
         self.qt_window.get_obj()
@@ -653,11 +680,17 @@ class Qt_shapekey(QWidget):
 
             # 选中这一行
             self.list_view.list_view.setCurrentIndex(proxy_index)
-
             # 滚动列表：居中显示
             self.list_view.list_view.scrollTo(proxy_index,
                 QAbstractItemView.PositionAtCenter
             )
+
+        # —— 新增日志，看看 mapFromSource 用的 index 和 proxy 是否匹配 —— #
+        src_index  = self.model.index(idx, 0)
+        print(f"[update_shape_keys] source idx  {src_index}: row={src_index.row()}, model={src_index.model()}")
+        proxy_index = self.proxy.mapFromSource(src_index)
+        print(f"[update_shape_keys] proxy idx   {proxy_index}: row={proxy_index.row()}, model={proxy_index.model()}")
+
         bpy.app.timers.register(partial(on_shape_key_index_change, self.qt_window))
 # 以下为按钮和下拉框回调示例，需在类中实现
     def on_combobox_changed(self, index=None):
@@ -694,7 +727,22 @@ class Qt_shapekey(QWidget):
     def on_item_clicked(self, index):
         import time
         a=time.time()
-        item_text = self.model.data(index, Qt.DisplayRole)
+         # --- debug begin ---
+        print(f"[on_item_clicked] index      : row={index.row()}, model={index.model()}")
+        print(f"[on_item_clicked] proxy      : {self.proxy}")
+        print(f"[on_item_clicked] proxy model: {self.list_view.list_view.model()}")
+        # --- debug end ---
+        # item_text = self.model.data(index, Qt.DisplayRole)
+        # 修复：map 到源模型再拿 name
+        if index.model()==self.model:
+            src_index=index
+        else:
+            src_index = self.proxy.mapToSource(index)
+        
+        if not src_index.isValid():
+            return
+
+        item_text = self.model.data(src_index, Qt.DisplayRole)
         # print(f"点击了项: {item_text}")
         # 查找形态键的索引
         self.qt_window.get_obj()
