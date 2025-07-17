@@ -20,6 +20,8 @@ from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import QByteArray
 import os
 
+from .qt_global import on_blendfile_loaded
+
 from ..utils.object import obj_from_ptr
 
 from .qt_check import CheckWidget
@@ -86,7 +88,7 @@ def register_msgbus():
         key=(bpy.types.LayerObjects, "active"),
         owner=__name__,
         args=(),
-        notify=on_active_or_mode_change,
+        notify=on_active_change,
         options={'PERSISTENT'}
     )
     # 监听所有 Object 实例的 mode 属性变化 :contentReference[oaicite:1]{index=1}
@@ -131,28 +133,28 @@ def register_msgbus():
     )
 
     print("消息总线订阅已注册。")
-def on_shape_key_index_change(qt_window_widget=None):
-    print('刷新 sk index')
+def on_shape_key_index_change(qt_w=None):
+    # print('刷新 sk index')
     # 如果外部没传进来，就用全局的 qt_window
-    if qt_window_widget is None:
-        global qt_window
-        qt_window_widget = qt_window
+
+    global qt_window
+
 
     # 确保 obj_ptr 和 obj 都是最新的
     obj = bpy.context.view_layer.objects.active
-    qt_window_widget.obj_ptr = obj.as_pointer()
-    qt_window_widget.get_obj()
+    qt_window.obj_ptr = obj.as_pointer()
+    qt_window.get_obj()
 
     # —— 核心：构造 index 并映射 —— #
     # 1. 拿到当前 active_shape_key_index
-    idx = qt_window_widget.obj.active_shape_key_index
+    idx = qt_window.obj.active_shape_key_index
     # 2. 在源模型里生成 QModelIndex （row, column）
-    src_index = qt_window_widget.qt_shapekey.model.index(idx, 0)
+    src_index = qt_window.qt_shapekey.model.index(idx, 0)
     # 3. 再通过代理转到视图上用的索引
-    proxy_index = qt_window_widget.qt_shapekey.proxy.mapFromSource(src_index)
+    proxy_index = qt_window.qt_shapekey.proxy.mapFromSource(src_index)
 
     # 4. 把它设置到真正的 QListView 里
-    lv = qt_window_widget.qt_shapekey.list_view.list_view
+    lv = qt_window.qt_shapekey.list_view.list_view
     if proxy_index.isValid():
         lv.setCurrentIndex(proxy_index)
         # 可选：滚动到可视区中心
@@ -161,32 +163,32 @@ def on_shape_key_index_change(qt_window_widget=None):
     # —— 同步集合里的 shape key —— #
     from .qt_global import GlobalProperty as GP
     gp = GP.get()
-    if (qt_window_widget.obj_ptr in gp.obj_sync_col and
-            gp.obj_sync_col[qt_window_widget.obj_ptr] is not None):
+    if (qt_window.obj_ptr in gp.obj_sync_col and
+            gp.obj_sync_col[qt_window.obj_ptr] is not None):
         sync_active_shape_key()
 
     return None
 
-# def on_shape_key_index_change(qt_window_widget=None):
+# def on_shape_key_index_change(qt_window=None):
 #     print('刷新sk index')
-#     if qt_window_widget is None:
+#     if qt_window is None:
 #         global qt_window
-#         qt_window_widget=qt_window
+#         qt_window=qt_window
 #     obj = bpy.context.view_layer.objects.active
-#     qt_window_widget.obj_ptr=obj.as_pointer()
-#     qt_window_widget.get_obj()
-#     if qt_window_widget is not None:
-#         index=qt_window_widget.qt_shapekey.model.index((qt_window_widget.obj.active_shape_key_index))
+#     qt_window.obj_ptr=obj.as_pointer()
+#     qt_window.get_obj()
+#     if qt_window is not None:
+#         index=qt_window.qt_shapekey.model.index((qt_window.obj.active_shape_key_index))
 
-#         qt_window_widget.qt_shapekey.list_view.setCurrentIndex(index)
+#         qt_window.qt_shapekey.list_view.setCurrentIndex(index)
 
 #     from .qt_global import GlobalProperty as GP
 #     gp=GP.get()
-#     if qt_window_widget.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window_widget.obj_ptr] is not None:
+#     if qt_window.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window.obj_ptr] is not None:
 #         sync_active_shape_key()
 #     return None
 
-def on_active_or_mode_change():
+def on_active_change():
     from .qt_global import GlobalProperty as GP
     # print('qt_window',qt_window,'物体切换')
     gp =GP.get()
@@ -225,7 +227,7 @@ def on_active_or_mode_change():
             else:
                 qt_window.qt_shapekey.show_only_sk.setChecked(False)
                 qt_window.qt_shapekey.s_ks=[]
-                qt_window.qt_shapekey.update_shape_keys([])
+                qt_window.qt_shapekey.update_shape_keys()
             if col is None:
                 qt_window.qt_shapekey.sync_col_combox.setCurrentIndex(-1)
 
@@ -237,7 +239,7 @@ def on_active_or_mode_change():
             qt_window.qt_shapekey.on_combobox_changed()
         else:
             qt_window.qt_shapekey.s_ks=[]
-            qt_window.qt_shapekey.update_shape_keys([])
+            qt_window.qt_shapekey.update_shape_keys()
 
 
   
@@ -256,7 +258,7 @@ def mirror_x_changed(*args):
                 warning_window = MirrorWarningWindow("打开镜像!!",parent=qt_window, duration=3000)
                 warning_window.show_centered_on_blender()
                 refocus_blender_window()
-    on_active_or_mode_change()
+    # on_active_change()
 
 
 def unregister_msgbus():
@@ -270,7 +272,7 @@ from bpy.app.handlers import persistent
 def load_post_handler(dummy):
     # register_sculpt_warning_handler()
     # 每次新文件加载完成后，重新执行消息总线订阅
-    
+    on_blendfile_loaded()
     register_msgbus()
 class MirrorWarningWindow(QWidget):
     def __init__(self, message="", duration=30000, parent=None):

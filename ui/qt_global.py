@@ -30,3 +30,8 @@ class GlobalProperty:
         if cls._instance is None:
             cls._instance = GlobalProperty()
         return cls._instance
+def on_blendfile_loaded():
+    global GlobalProperty
+    gp = GlobalProperty.get()
+    gp._sk_search_map.clear()
+    gp.obj_sync_col.clear()

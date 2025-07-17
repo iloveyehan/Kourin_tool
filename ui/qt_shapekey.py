@@ -67,7 +67,6 @@ class MenuButton(QPushButton):
             action.setData(self.icon_dict[action.text()][0])
             action.triggered.connect(self.actionHandler)
             icon_path=self.icon_dict[action.text()][1]
-            # print('icon路径',icon_path)
             if icon_path !='':
                 my_icon = icon_from_dat(icon_path)
                 action.setIcon(my_icon)
@@ -112,7 +111,7 @@ class MenuButton(QPushButton):
         bpy.ops.kourin.shape_key_prune()
     def actionHandler(self):  
         from .ui_vrc_panel import qt_window,on_shape_key_index_change
-        print('actionhandle')
+
         name = self.sender().data()
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
@@ -219,13 +218,14 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         self._drag_index = None
         self._drag_model = None
 
+        # 缓存一个复选框绘制用的 QStyleOptionButton
+        self._check_opt = QtWidgets.QStyleOptionButton()
         self._timer = QTimer()
         self._timer.timeout.connect(self._onDragTimeout)
 
         # 安装全局事件过滤器
         QtWidgets.QApplication.instance().installEventFilter(self)
     def calculate_regions(self, option):
-        # print('区域计算')
         # a=time()
         """区域计算方法，必须接受QStyleOptionViewItem参数"""
         total_width = option.rect.width() - 40
@@ -249,45 +249,69 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 option.rect.height()
             )
         }
-
     def paint(self, painter, option, index):
-        model = index.model()
-        regions = self.calculate_regions(option)
+        # 背景
+        bg = QtGui.QColor('#585858' if option.state & QtWidgets.QStyle.State_Selected else '#383838')
+        painter.fillRect(option.rect, bg)
 
-        # 绘制背景
-        bg_color = QtGui.QColor('#585858' if option.state & QtWidgets.QStyle.State_Selected else '#383838')
-        painter.fillRect(option.rect, bg_color)
-
-        # 绘制名称
+        # 名称和值
+        name = index.data(ListModel.NameRole)
+        val  = index.data(ListModel.ValueRole)
         painter.setPen(QtGui.QColor('white'))
-        painter.drawText(
-            regions["name"], 
-            QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
-            model.data(index, ListModel.NameRole)
-        )
+        regions = self.calculate_regions(option)
+        painter.drawText(regions["name"],
+                         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
+                         name)
+        painter.drawText(regions["value"],
+                         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
+                         f"{val:.2f}")
 
-        # 绘制数值（保留2位小数）
-        painter.drawText(
-            regions["value"],
-            QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
-            f"{model.data(index, ListModel.ValueRole):.2f}"
-        )
-
-        # 绘制复选框
-        opt = QtWidgets.QStyleOptionButton()
-        opt.rect = regions["checkbox"]
-        opt.state = QtWidgets.QStyle.State_Enabled
-        # if model.data(index, ListModel.CheckedRole):
-        if model.data(index, ListModel.ValueRole) >= 0.5:
-            opt.state |= QtWidgets.QStyle.State_On
+        # 复选框 —— 重用 self._check_opt
+        self._check_opt.rect  = regions["checkbox"]
+        self._check_opt.state = QtWidgets.QStyle.State_Enabled
+        if val >= 0.5:
+            self._check_opt.state |= QtWidgets.QStyle.State_On
         else:
-            opt.state |= QtWidgets.QStyle.State_Off
-        QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_CheckBox, opt, painter)
-        # print('绘图事件',time()-a)
+            self._check_opt.state |= QtWidgets.QStyle.State_Off
+        QtWidgets.QApplication.style().drawControl(
+            QtWidgets.QStyle.CE_CheckBox, self._check_opt, painter
+        )
+    # def paint(self, painter, option, index):
+    #     model = index.model()
+    #     regions = self.calculate_regions(option)
+
+    #     # 绘制背景
+    #     bg_color = QtGui.QColor('#585858' if option.state & QtWidgets.QStyle.State_Selected else '#383838')
+    #     painter.fillRect(option.rect, bg_color)
+
+    #     # 绘制名称
+    #     painter.setPen(QtGui.QColor('white'))
+    #     painter.drawText(
+    #         regions["name"], 
+    #         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
+    #         model.data(index, ListModel.NameRole)
+    #     )
+
+    #     # 绘制数值（保留2位小数）
+    #     painter.drawText(
+    #         regions["value"],
+    #         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
+    #         f"{model.data(index, ListModel.ValueRole):.2f}"
+    #     )
+
+    #     # 绘制复选框
+    #     opt = QtWidgets.QStyleOptionButton()
+    #     opt.rect = regions["checkbox"]
+    #     opt.state = QtWidgets.QStyle.State_Enabled
+    #     # if model.data(index, ListModel.CheckedRole):
+    #     if model.data(index, ListModel.ValueRole) >= 0.5:
+    #         opt.state |= QtWidgets.QStyle.State_On
+    #     else:
+    #         opt.state |= QtWidgets.QStyle.State_Off
+    #     QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_CheckBox, opt, painter)
+    #    
     def setEditorData(self, editor, index):
-        # print('setEditorData')
         if isinstance(editor, QtWidgets.QLineEdit):
-            # print('正在输入')
             field = editor.property("field")
             if field == "name":
                 editor.setText(index.data(ListModel.NameRole))
@@ -295,7 +319,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 editor.setText(f"{index.data(ListModel.ValueRole):.2f}")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
     def createEditor(self, parent, option, index):
-        # print('createEditor')
         # a=time()
         list_view = self.parent().list_view
         if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
@@ -307,16 +330,13 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         # 名称编辑器
         if regions["name"].contains(click_pos):
             name_data = index.data(ListModel.NameRole)
-            # print(f'Creating name editor with data: {name_data}')  # 调试输出
             editor = QLineEdit(parent)
-            # print('index.data(ListModel.NameRole)',index.data(ListModel.NameRole))
             self.sk_name=index.data(ListModel.NameRole)
             editor.setText(index.data(ListModel.NameRole))
             # editor.setText(str(name_data))  # 强制转换为字符串
             editor.selectAll()
             editor.setProperty("field", "name")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
-            # print('点击list view name',time()-a)
             editor.editingFinished.connect(lambda ed=editor: self.commit_and_close(ed))
             return editor
             
@@ -335,9 +355,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.setProperty("field", "value")
             editor.setFocus(QtCore.Qt.OtherFocusReason)
             editor.editingFinished.connect(lambda ed=editor: self.commit_and_close(ed))
-            # print('点击list view value',time()-a)
             return editor
-        # print('点击list view ',time()-a)
         return None
     @Slot()
     def commit_and_close(self, editor):
@@ -349,13 +367,11 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         # view.closeEditor(editor, QtWidgets.QAbstractItemDelegate.NoHint)
     def setModelData(self, editor, model, index):
         
-        # print('setModelData')
         if isinstance(editor, QtWidgets.QLineEdit):
             self.qt_window.get_obj()
             field = editor.property("field")
             if field == "name":
                 model.setData(index, editor.text(), ListModel.NameRole)
-                print('editor.text()',str(index.data(ListModel.NameRole)))
                 if self.qt_window.obj is not None:
                         sk=self.qt_window.obj.data.shape_keys.key_blocks[self.sk_name]
                         sk.name=editor.text()#避免重名,再次设置
@@ -366,14 +382,12 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                     # 二次范围验证确保数据正确性
                     clamped_value = max(self.value_min, min(raw_value, self.value_max))
                     model.setData(index, clamped_value, ListModel.ValueRole)
-                    # print('clamped_value',clamped_value)
                     if self.qt_window.obj is not None:
                         self.qt_window.obj.data.shape_keys.key_blocks[str(index.data(ListModel.NameRole))].value=clamped_value
                 except ValueError:
                     pass
             editor.setFocus(QtCore.Qt.OtherFocusReason)
     def updateEditorGeometry(self, editor, option, index):
-        # print('updateEditorGeometry')
         regions = self.calculate_regions(option)
         if editor.property("field") == "name":
             editor.setGeometry(regions["name"])
@@ -381,7 +395,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             editor.setGeometry(regions["value"])
 
     def editorEvent(self, event, model, option, index):
-        # print('editorEvent')
         
             
         # 先算出各区域
@@ -397,7 +410,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                     sk_name = model.data(index, ListModel.NameRole)
                     self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
                 return True
-            print(time.time()-a)
         # 只关注 value 区域
         if regions["value"].contains(event.pos()):
             if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
@@ -542,6 +554,7 @@ class Qt_shapekey(QWidget):
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
         self.proxy.setFilterRole(Qt.DisplayRole)
+        self._last_filter = ""
         # 将输入框与过滤器关联
         self.search_edit.textChanged.connect(self.proxy.setFilterFixedString)
 
@@ -600,9 +613,9 @@ class Qt_shapekey(QWidget):
         self.update_shape_keys()
     def on_selection_changed(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex):
         # --- debug begin ---
-        print(f"[on_selection_changed] current      : row={current.row()}, model={current.model()}")
-        print(f"[on_selection_changed] proxy        : {self.proxy}")
-        print(f"[on_selection_changed] proxy model  : {self.list_view.list_view.model()}")
+        # print(f"[on_selection_changed] current      : row={current.row()}, model={current.model()}")
+        # print(f"[on_selection_changed] proxy        : {self.proxy}")
+        # print(f"[on_selection_changed] proxy model  : {self.list_view.list_view.model()}")
         # --- debug end ---
         if not current.isValid():
             return
@@ -647,51 +660,121 @@ class Qt_shapekey(QWidget):
             self.sync_col_combox.setCurrentIndex(idx)
         self.sync_col_combox.blockSignals(False)
 
-    def update_shape_keys(self, new_sks=None):
-        from .ui_vrc_panel import  on_shape_key_index_change
+    # def update_shape_keys(self, new_sks=None):
+    #     from .ui_vrc_panel import  on_shape_key_index_change
 
-        print('更新sk列表')
+    #     print('更新sk列表')
 
-        # 1. 取出当前对象的所有 shape keys
-        self.qt_window.get_obj()
-        if not has_shapekey(self.qt_window.obj):
-            items=[]
-        else:
-            sk_blocks = self.qt_window.obj.data.shape_keys.key_blocks
+    #     # 1. 取出当前对象的所有 shape keys
+    #     self.qt_window.get_obj()
+    #     if not has_shapekey(self.qt_window.obj):
+    #         items=[]
+    #     else:
+    #         sk_blocks = self.qt_window.obj.data.shape_keys.key_blocks
 
-            # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
-            items = [Item(sk.name, sk.value) for sk in sk_blocks]
+    #         # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
+    #         items = [Item(sk.name, sk.value) for sk in sk_blocks]
         
 
-        # 3. 更新 Model
-        self.model.beginResetModel()
-        self.model._items = items
-        self.model.endResetModel()
+    #     # 3. 更新 Model
+    #     self.model.beginResetModel()
+    #     self.model._items = items
+    #     self.model.endResetModel()
 
-        # 4. 刷新过滤器 & Blender 激活 key
-        self.proxy.invalidateFilter()
+    #     # 4. 刷新过滤器 & Blender 激活 key
+    #     self.proxy.invalidateFilter()
 
-        # —— 新增：选中并滚动到激活的 shape key —— #
+    #     # —— 新增：选中并滚动到激活的 shape key —— #
+    #     idx = self.qt_window.obj.active_shape_key_index
+    #     if idx != -1:
+    #         # 先把源 model 的行映射到 proxy
+    #         src_index  = self.model.index(idx, 0)
+    #         proxy_index = self.proxy.mapFromSource(src_index)
+
+    #         # 选中这一行
+    #         self.list_view.list_view.setCurrentIndex(proxy_index)
+    #         # 滚动列表：居中显示
+    #         self.list_view.list_view.scrollTo(proxy_index,
+    #             QAbstractItemView.PositionAtCenter
+    #         )
+
+    #     # —— 新增日志，看看 mapFromSource 用的 index 和 proxy 是否匹配 —— #
+    #     src_index  = self.model.index(idx, 0)
+    #     print(f"[update_shape_keys] source idx  {src_index}: row={src_index.row()}, model={src_index.model()}")
+    #     proxy_index = self.proxy.mapFromSource(src_index)
+    #     print(f"[update_shape_keys] proxy idx   {proxy_index}: row={proxy_index.row()}, model={proxy_index.model()}")
+
+    #     bpy.app.timers.register(partial(on_shape_key_index_change, self.qt_window))
+    def update_shape_keys(self, new_blocks=None):
+        """
+        Incremental 更新模型：只对比新增/删除的 key，而非整体 reset
+        """
+        # 1. 确保拿到当前对象
+        self.qt_window.get_obj()
+        obj_ptr = self.qt_window.obj_ptr
+
+        # 2. 获取最新的 name 列表
+        if not has_shapekey(self.qt_window.obj):
+            new_names = []
+        else:
+            new_names = [sk.name for sk in self.qt_window.obj.data.shape_keys.key_blocks]
+
+        # 3. 如果对象切换了，就做全表重置
+        if new_blocks is not None:
+            self.model.beginResetModel()
+            self.model._items = [Item(name,
+                self.qt_window.obj.data.shape_keys.key_blocks[name].value
+            ) for name in new_names]
+            self.model.endResetModel()
+            # self._last_obj_ptr = obj_ptr
+
+        else:
+            old_names = [item.name for item in self.model._items]
+            old_count = len(old_names)
+            new_count = len(new_names)
+
+            # 找出被删除的项：在 old_names 中但不在 new_names
+            removed = [i for i, name in enumerate(old_names) if name not in new_names]
+            # 从大到小删除
+            for row in sorted(removed, reverse=True):
+                self.model.beginRemoveRows(QtCore.QModelIndex(), row, row)
+                del self.model._items[row]
+                self.model.endRemoveRows()
+
+            # 找出被新增的项：在 new_names 中但不在 old_names
+            added = [(i, name) for i, name in enumerate(new_names) if name not in old_names]
+            # 按索引从小到大插入
+            for row, name in sorted(added, key=lambda x: x[0]):
+                val = self.qt_window.obj.data.shape_keys.key_blocks[name].value
+                self.model.beginInsertRows(QtCore.QModelIndex(), row, row)
+                self.model._items.insert(row, Item(name, val))
+                self.model.endInsertRows()
+
+            # 值变化
+            changed = []
+            for row, name in enumerate(new_names[:min(old_count, new_count)]):
+                val = self.qt_window.obj.data.shape_keys.key_blocks[name].value
+                if self.model._items[row].value != val:
+                    self.model._items[row].value = val
+                    changed.append(row)
+            for row in changed:
+                idx = self.model.index(row, 0)
+                self.model.dataChanged.emit(idx, idx, [ListModel.ValueRole])
+
+        # 4. 选中并滚动到激活形态键
         idx = self.qt_window.obj.active_shape_key_index
-        if idx != -1:
-            # 先把源 model 的行映射到 proxy
-            src_index  = self.model.index(idx, 0)
-            proxy_index = self.proxy.mapFromSource(src_index)
+        if 0 <= idx < len(new_names):
+            src = self.model.index(idx, 0)
+            proxy = self.proxy.mapFromSource(src)
+            lv = self.list_view.list_view
+            lv.setCurrentIndex(proxy)
+            lv.scrollTo(proxy, QAbstractItemView.PositionAtCenter)
 
-            # 选中这一行
-            self.list_view.list_view.setCurrentIndex(proxy_index)
-            # 滚动列表：居中显示
-            self.list_view.list_view.scrollTo(proxy_index,
-                QAbstractItemView.PositionAtCenter
-            )
-
-        # —— 新增日志，看看 mapFromSource 用的 index 和 proxy 是否匹配 —— #
-        src_index  = self.model.index(idx, 0)
-        print(f"[update_shape_keys] source idx  {src_index}: row={src_index.row()}, model={src_index.model()}")
-        proxy_index = self.proxy.mapFromSource(src_index)
-        print(f"[update_shape_keys] proxy idx   {proxy_index}: row={proxy_index.row()}, model={proxy_index.model()}")
-
-        bpy.app.timers.register(partial(on_shape_key_index_change, self.qt_window))
+        # 5. 只有过滤关键字真的变了才重新过滤
+        cur_filter = self.proxy.filterRegularExpression().pattern()
+        if cur_filter != self._last_filter:
+            self._last_filter = cur_filter
+            self.proxy.invalidateFilter()
 # 以下为按钮和下拉框回调示例，需在类中实现
     def on_combobox_changed(self, index=None):
         from .qt_global import GlobalProperty as GP
@@ -728,9 +811,9 @@ class Qt_shapekey(QWidget):
         import time
         a=time.time()
          # --- debug begin ---
-        print(f"[on_item_clicked] index      : row={index.row()}, model={index.model()}")
-        print(f"[on_item_clicked] proxy      : {self.proxy}")
-        print(f"[on_item_clicked] proxy model: {self.list_view.list_view.model()}")
+        # print(f"[on_item_clicked] index      : row={index.row()}, model={index.model()}")
+        # print(f"[on_item_clicked] proxy      : {self.proxy}")
+        # print(f"[on_item_clicked] proxy model: {self.list_view.list_view.model()}")
         # --- debug end ---
         # item_text = self.model.data(index, Qt.DisplayRole)
         # 修复：map 到源模型再拿 name

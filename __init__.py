@@ -168,7 +168,6 @@ from .preference.AddonPreferences import reg_pref,unreg_pref
 def register():
     bpy.utils.register_class(InstallPysideOperator)
     bpy.utils.register_class(KourinCheckUpdateOperator)
-    reg_pref()
     # bpy.utils.register_class(MyAddonPreferences)
     
     # main_button_register()
