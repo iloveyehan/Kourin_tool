@@ -170,53 +170,69 @@ sides = [
     {"left": ".l", "right": ".r"},
     {"left": ".L", "right": ".R"},
     {"left": "Left", "right": "Right"},
+    {"left": "left", "right": "right"},
 ]
 
 
-def determine_and_convert(vertex_group_name, LR=None):
-    '''参数：顶点组名，顶点组位置
-        只有顶点组名时，返回左右转换后的顶点组名，中间顶点组不变
-        传入顶点组位置时，返回 顶点组位置是否匹配'''
-    # 定义左右边的标识符及其转换规则
+def determine_and_convert(vertex_group_name: str, LR: str = None):
+    """
+    参数：
+      vertex_group_name: 要检测或转换的顶点组名称
+      LR: '-x' 只检测并替换左侧标签
+          '+x' 只检测并替换右侧标签
+          'center' 只检测是否为中间（既不含左也不含右），不替换
+          None 双向替换左右标签
+    返回： [是否匹配, 匹配到的标签, (转换后名称或原名称)]
+    """
+    def _pattern_for(tag: str) -> str:
+        # 前缀标签：r_ 或 l_ 形式，需要前边界
+        if re.match(r"^[rR]_$|^[lL]_", tag):
+            return rf"(?:(?<=^)|(?<=[^A-Za-z])){re.escape(tag)}"
+        # 后缀标签： _r 或 _l 形式，需要后边界
+        if re.search(r"_[rRlL]$", tag):
+            return rf"{re.escape(tag)}(?:(?=$)|(?=[^A-Za-z]))"
+        # 其它标签（如 .L/.R/Left/Right）使用完整匹配
+        return re.escape(tag)
 
-    # 根据LR参数选择匹配左边还是右边的标识符，并准备替换的映射
-    pattern = ''
+    # 根据 LR 构建要匹配的模式列表及替换映射
+    patterns = []
     replace_map = {}
-    if LR == '-x':
-        pattern = "|".join([re.escape(side["left"]) for side in sides])
-        replace_map = {side["left"]: side["right"] for side in sides}
-    elif LR == '+x':
-        pattern = "|".join([re.escape(side["right"]) for side in sides])
-        replace_map = {side["right"]: side["left"] for side in sides}
-    elif LR == 'center':
-        # 创建正则表达式模式，将所有左右标识符组合成一个正则表达式
-        pattern = "|".join([re.escape(side["left"]) + "|" + re.escape(side["right"]) for side in sides])
+    for side in sides:
+        left, right = side["left"], side["right"]
+        if LR == "-x":
+            patterns.append(_pattern_for(left))
+            replace_map[left] = right
+        elif LR == "+x":
+            patterns.append(_pattern_for(right))
+            replace_map[right] = left
+        elif LR == "center":
+            patterns.append(_pattern_for(left))
+            patterns.append(_pattern_for(right))
+            # 不构建替换表
+        else:  # LR is None
+            patterns.append(_pattern_for(left))
+            patterns.append(_pattern_for(right))
+            replace_map[left] = right
+            replace_map[right] = left
 
-        # 使用正则表达式查找左右标识符
-        matches = re.findall(pattern, vertex_group_name)
+    regex = re.compile("|".join(patterns))
 
-        # 如果没有找到任何匹配项，返回True；否则返回False
-        return [not bool(matches), None, vertex_group_name]
-    elif LR == None:
-        # 构建匹配左边标识符的正则表达式，并准备替换的映射
+    if LR == "center":
+        # 中心：不含任何左右标签即为中间
+        return [not bool(regex.search(vertex_group_name)), None, vertex_group_name]
 
-        pattern = "|".join([re.escape(side["left"]) + "|" + re.escape(side["right"]) for side in sides])
-
-        replace_map = {**{side["left"]: side["right"] for side in sides},
-                       **{side["right"]: side["left"] for side in sides}}
-
-    # 查找所有匹配项
-    matches = re.findall(pattern, vertex_group_name)
+    # 寻找所有匹配
+    matches = list(regex.finditer(vertex_group_name))
     if not matches:
         return [False, None, vertex_group_name]
 
-    # 仅替换最后一个匹配项
-    last_match = matches[-1]
-    replaced_string = re.sub(re.escape(last_match), replace_map[last_match], vertex_group_name, count=1)
+    # 只替换最后一个匹配
+    last = matches[-1]
+    tag = last.group(0)
+    start, end = last.span()
+    new_name = vertex_group_name[:start] + replace_map.get(tag, tag) + vertex_group_name[end:]
 
-    # 返回结果
-    return [True, last_match, replaced_string]
-
+    return [True, tag, new_name]
 
 def clean_vertex_groups(obj, keep_groups):
     """

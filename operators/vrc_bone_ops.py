@@ -296,10 +296,15 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
                 if (wgts := mesh_data.get_vertex_group_weights(bone_name)) is not None:
                     weights_active += wgts
                 # 处理镜像骨骼权重
+                
                 if self.mirror:
                     if mirror_name := determine_and_convert(bone_name)[2]:
+                        
                         if (mirror_wgts := mesh_data.get_vertex_group_weights(mirror_name)) is not None:
+                            print(pose_bone.name,weights_mirror,mirror_wgts)
                             weights_mirror += mirror_wgts
+                            print(pose_bone.name,weights_mirror,mirror_wgts)
+                print(123,pose_bone.name)
             # 写入权重数据
             mesh_data.set_vertex_group_weights(weights_active, active_bone.name)
             if mirror_active_bone and weights_mirror is not None:
@@ -365,5 +370,6 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
             if bname not in seen and bname in edit_bones:
                 seen.add(bname)
                 edit_bones.remove(edit_bones[bname])
+                print('删除',bname)
 
         bpy.ops.object.mode_set(mode='POSE')

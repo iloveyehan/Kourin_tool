@@ -7,10 +7,11 @@ from ..utils.utils import undoable
 
 class PreprocesseWigdet(QWidget):
     
-    def __init__(self):
+    def __init__(self,parent):
         from .ui_widgets import Button
         super().__init__()
         # 创建布局
+        self.qt_window=parent
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -91,7 +92,16 @@ class PreprocesseWigdet(QWidget):
         return None
     @undoable
     def handle_combine_selected_bone_weights(self):
-        bpy.ops.kourin.combine_selected_bone_weights()
+        obj=bpy.context.object
+        
+        self.qt_window.get_obj()
+
+        if self.qt_window.obj is not None and self.qt_window.obj.type=='ARMATURE':
+
+            md=self.qt_window.obj.mode
+            bpy.ops.object.mode_set(mode='POSE')
+            bpy.ops.kourin.combine_selected_bone_weights()
+            bpy.ops.object.mode_set(mode=md)
     def handle_set_viewport_display_random(self): 
         bpy.ops.kourin.set_viewport_display_random()
     @undoable

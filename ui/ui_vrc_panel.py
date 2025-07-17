@@ -39,7 +39,6 @@ from .qt_preprocessing import PreprocesseWigdet
 from .qt_toolbox import ToolBox
 from .qt_shapekey import  Item, ItemDelegate, ListModel, ListView, Qt_shapekey, ResizableListView,MenuButton
 from ..common.class_loader.auto_load import ClassAutoloader
-from ..test import CollapsibleWidget,CategoryTreeWidget
 ui_vrc_panel=ClassAutoloader(Path(__file__))
 
 def reg_ui_vrc_panel():
@@ -425,8 +424,9 @@ class MyQtWindow(QWidget):
         self.qt_shapekey=Qt_shapekey(self)
         self.qt_vertexgroup=QtVertexGroup(self)
         self.qt_check=CheckWidget(self)
+        self.qt_preprocessewigdet=PreprocesseWigdet(self)
         toolbox = ToolBox()
-        toolbox.addWidget('预处理',PreprocesseWigdet())
+        toolbox.addWidget('预处理',self.qt_preprocessewigdet)
         toolbox.addWidget('顶点组',self.qt_vertexgroup)
         toolbox.addWidget('形态键',self.qt_shapekey)
         toolbox.addWidget('检查',self.qt_check)
