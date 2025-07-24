@@ -103,12 +103,22 @@ class Sculptwheel(QWidget):
         self._drag_offset = QPointF()
         self.button_infos = button_infos
         # 准备角度分布参数
-        self._start_angle = -math.pi / 2      # 从 -90° 开始
-        self._angle_span = math.pi  
-        self._angle_step  = 0               # 初始化后计算
+        # 布局从正上方开始（-90°）
+        self._layout_start_angle = -math.pi / 2  
+        # 布局 span：180°
+        self._layout_span = math.pi            
+
+        # 检测从 -110° 开始
+        self._detect_start_angle = math.radians(-110)  
+        # 检测 span：220°
+        self._detect_span = math.radians(220)         
+
+        # 这两个在 _init_ui 里计算
+        self._layout_step = 0
+        self._detect_step = 0
 
         # 容差：允许射线越过圆中心往左延伸的像素数
-        self._x_tolerance = 20
+        # self._x_tolerance = 60
         # 鼠标当前位置（本地坐标），用于绘制射线
         self._last_mouse_pos = QPointF(self.width()/2, self.height()/2)
         self.setMouseTracking(True)
@@ -152,16 +162,19 @@ class Sculptwheel(QWidget):
             ('mask_bursh.png',             'mask_brush'),
         ]
         n = len(entries)
-        if n == 0:
+        if n <2:
             return
 
         # 重新计算步长
-        self._angle_step = self._angle_span / (n - 1) if n > 1 else 0
+        # 根据布局 span 计算布局步长
+        self._layout_step = self._layout_span / (n - 1)
+        # 根据检测 span 计算检测步长
+        self._detect_step = self._detect_span / (n - 1)
 
-        center = QPointF(self.width() / 2, self.height() / 2)
-
+        center = QPointF(self.width()/2, self.height()/2)
         for i, (icon, bt_name) in enumerate(entries):
-            angle = self._start_angle + self._angle_step * i
+            # 布局用 layout_start_angle + layout_step * i
+            angle = self._layout_start_angle + self._layout_step * i
             x = center.x() + math.cos(angle) * self.radius
             y = center.y() + math.sin(angle) * self.radius
             btn = Button('', icon,parent=self)
@@ -212,8 +225,9 @@ class Sculptwheel(QWidget):
         把 Blender 的 window 坐标 (左下原点) 转换到本控件的局部坐标 (左上原点)。
         """
         # 1. 翻转 Y
-        screen_geom = self.SculptMenuWidget._blender_qwindow.screen().geometry()
-        inv_y = screen_geom.height() - mouse_y
+        # screen_geom = self.SculptMenuWidget._blender_qwindow.screen().geometry()
+        blender_geom = self.SculptMenuWidget._blender_qwindow.geometry()
+        inv_y = blender_geom.height() - mouse_y
 
         # 2. 从 Blender 窗口坐标到屏幕全局坐标
         global_pt = self.SculptMenuWidget._blender_qwindow.mapToGlobal(
@@ -242,39 +256,28 @@ class Sculptwheel(QWidget):
         painter.setPen(pen_line)
         center = QPointF(self.width()/2, self.height()/2)
         painter.drawLine(center, self._last_mouse_pos)
+        painter.drawText(10, 10, f"{QCursor.pos().x():.1f}, {QCursor.pos().y():.1f}")
 
-
-    def mouseMoveEvent(self, event):
-        # 更新鼠标位置并重绘以显示射线
-        # self._last_mouse_pos = event.position()
-        # self._last_mouse_pos = self.mapFromGlobal(QCursor.pos())
-        # self.update()
+    def mouseMoveEvent(self, event):  
         print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
         super().mouseMoveEvent(event)
-        # print('鼠标移动qt',self._last_mouse_pos,QCursor.pos())
 
-    # 覆盖空格键释放事件
     def keyReleaseOps(self):
-        # 1. 只在右半圆（带容差）响应
-        center_x = self.width() / 2
-        if self._last_mouse_pos.x() < center_x - self._x_tolerance:
-            return  # 在左侧不生效
-        # 2. 计算落在哪个按钮区域
-        center = QPointF(center_x, self.height()/2)
+        center = QPointF(self.width()/2, self.height()/2)
         dx = self._last_mouse_pos.x() - center.x()
         dy = self._last_mouse_pos.y() - center.y()
+
         angle = math.atan2(dy, dx)
-        # 将角度从 start_angle 起算
-        rel = angle - self._start_angle 
-        while rel < 0:
-            rel += 2*math.pi
-        idx = int(math.floor(rel / self._angle_step + 0.5))
+        # 用检测起始角度和 span
+        rel = (angle - self._detect_start_angle) % (2 * math.pi)
 
-        idx = max(0, min(idx, len(self.buttons)-1))
-        # 触发对应按钮
+        if rel > self._detect_span:
+            return  # 超出 220° 检测范围
+
+        idx = round(rel / self._detect_step)
+        idx = max(0, min(idx, len(self.buttons) - 1))
         self.buttons[idx].click()
-        print(self.buttons[idx].property('bt_name'))
-
+        print(f"点击: {self.buttons[idx].property('bt_name')} idx={idx}")
     
 class SculptQuickWigdet(QWidget):
     def __init__(self,parent,radius):
@@ -533,7 +536,7 @@ class QtSculptMenuOperator(bpy.types.Operator):
         
         return {'RUNNING_MODAL'}
     def modal(self, context, event):
-        if event.value == 'PRESS':
+        if event.type == 'SPACE' and event.value == 'PRESS':
             if self._qt_window_ref and self._qt_window_ref():
                 window = self._qt_window_ref()
                 window.show()
@@ -541,6 +544,7 @@ class QtSculptMenuOperator(bpy.types.Operator):
                 if platform.system() == "Windows":
                     window.winId()  # 强制创建窗口句柄
                 window.raise_()
+                window.Sculptwheel.set_blender_mouse(event.mouse_x, event.mouse_y)
                 print('bl',event.mouse_x,event.mouse_y)
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
             # 把 Blender 坐标先给 Sculptwheel，内部会做转换并重绘
