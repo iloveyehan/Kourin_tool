@@ -11,7 +11,7 @@ from .qt_load_icon import pixmap_from_dat
 SCROLLBAR_QSS = """
 QScrollBar:vertical {
     background: transparent;
-    width: 8px;
+    width: 3px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
@@ -75,9 +75,9 @@ class SuspendedScrollArea(QScrollArea):
         h = self.viewport().height()
         # mapToParent 因为 scrollarea 有 frame
         geo = self.viewport().geometry()
-        x = geo.x() + geo.width() - 8
+        x = geo.x() + geo.width() - 3
         y = geo.y()
-        self._vbar.setGeometry(x, y, 8, h)
+        self._vbar.setGeometry(x, y, 3, h)
 
     def enterEvent(self, event):
         # 鼠标进入时，如果需要就显示

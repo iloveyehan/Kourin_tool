@@ -633,6 +633,38 @@ class Kourin_vg_trans_modi(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode=mode_t)
         return {'FINISHED'}
+class Kourin_vg_shrink_modi(bpy.types.Operator):
+    """数据传递修改器"""
+    bl_idname = "kourin.vg_shrink_modi"
+    bl_label = "缩裹修改器"
+    bl_options = {'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type=='MESH'
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH':
+            return {'CANCELLED'}
+
+        mode_t=obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+
+        
+        # 添加 Data Transfer
+        mod = obj.modifiers.new(name="Shrinkwrap", type='SHRINKWRAP')
+        # 源设为已经 rig 的 mesh（假设与 armature 同名后缀）
+        # mod.object = mesh  # 若骨架本身是 mesh（有权重），这里指向 source mesh
+        mod.wrap_mode = 'ABOVE_SURFACE'
+        # mod.generate_data_layers = True
+        if obj.vertex_groups.active:
+            mod.vertex_group=obj.vertex_groups.active.name
+
+
+        bpy.ops.object.mode_set(mode=mode_t)
+        return {'FINISHED'}
 class CopyVertexGroupWeights(bpy.types.Operator):
     bl_idname = "kourin.copy_vertex_group_weights"
     bl_label = "Copy Vertex Group Weights"

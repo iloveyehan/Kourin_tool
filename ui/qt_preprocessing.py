@@ -29,6 +29,7 @@ class PreprocesseWigdet(QWidget):
             ('清理','clean_skeleton',False,'选中骨架\n移除所有没有权重的骨骼'),
             ('棍型','make_skeleton',False,'设置棍型骨架\n其他衣服骨骼设置为八面锥'),
             ('名称','show_bonename',True,'骨骼名称显示切换'),
+            ('前面','in_front',False,'在前面'),
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -120,3 +121,7 @@ class PreprocesseWigdet(QWidget):
     @undoable
     def handle_make_skeleton(self):
         bpy.ops.kourin.set_bone_display()
+    def handle_in_front(self):
+        self.qt_window.get_obj()
+        if self.qt_window.obj.type=='ARMATURE':
+            self.qt_window.obj.show_in_front = not self.qt_window.obj.show_in_front

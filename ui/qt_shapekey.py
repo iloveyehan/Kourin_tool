@@ -115,8 +115,9 @@ class MenuButton(QPushButton):
         name = self.sender().data()
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
+        qt_window.get_obj()
         bpy.app.timers.register(func)
-        bpy.app.timers.register(self.parent_wd.update_shape_keys,first_interval=0.8)
+        bpy.app.timers.register(self.parent_wd.update_shape_keys)
         bpy.app.timers.register(partial(on_shape_key_index_change,qt_window))
     def mousePressEvent(self, event):
         # 如果是左键点击，显示菜单
@@ -135,7 +136,7 @@ class ListView(QtWidgets.QListView):
         super().__init__(parent)
         self.parent_widget=parent
         self.last_double_click_pos = None
-
+        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
     def mouseDoubleClickEvent(self, event):
         self.last_double_click_pos = event.position().toPoint()
         super().mouseDoubleClickEvent(event)
@@ -228,22 +229,25 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
     def calculate_regions(self, option):
         # a=time()
         """区域计算方法，必须接受QStyleOptionViewItem参数"""
-        total_width = option.rect.width() - 40
+        total_width = min(option.rect.width(),200) - 40
+        name_w = min(int(total_width * 0.8), 200)
+        name_value = min(int(total_width * 0.2), 50)
         return {
             "name": QtCore.QRect(
                 option.rect.left() + 4, 
                 option.rect.top(),
-                int(total_width * 0.8), 
+                name_w, 
                 option.rect.height()
             ),
             "value": QtCore.QRect(
-                option.rect.left() + 4 + int(total_width * 0.8) + 4,
+                option.rect.left() + 4 + name_w + 4,
                 option.rect.top(),
-                int(total_width * 0.2),
+                name_value,
                 option.rect.height()
             ),
             "checkbox": QtCore.QRect(
-                option.rect.right() - 24,
+                # option.rect.right() - 24,
+                total_width+16,
                 option.rect.top(),
                 20,
                 option.rect.height()
@@ -259,9 +263,16 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         val  = index.data(ListModel.ValueRole)
         painter.setPen(QtGui.QColor('white'))
         regions = self.calculate_regions(option)
+        total_width = min(option.rect.width(),200) - 40
+        name_w = min(int(total_width * 0.8), 200)
+        # 【修改点】先 elide 文本
+        fm = painter.fontMetrics()
+        elided = fm.elidedText(name, QtCore.Qt.ElideRight, name_w)
+        # elided = fm.elidedText(name, QtCore.Qt.ElideRight, regions["name"].width())
+        # print('elided,elided',elided)
         painter.drawText(regions["name"],
                          QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
-                         name)
+                         elided )
         painter.drawText(regions["value"],
                          QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
                          f"{val:.2f}")
@@ -276,40 +287,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         QtWidgets.QApplication.style().drawControl(
             QtWidgets.QStyle.CE_CheckBox, self._check_opt, painter
         )
-    # def paint(self, painter, option, index):
-    #     model = index.model()
-    #     regions = self.calculate_regions(option)
-
-    #     # 绘制背景
-    #     bg_color = QtGui.QColor('#585858' if option.state & QtWidgets.QStyle.State_Selected else '#383838')
-    #     painter.fillRect(option.rect, bg_color)
-
-    #     # 绘制名称
-    #     painter.setPen(QtGui.QColor('white'))
-    #     painter.drawText(
-    #         regions["name"], 
-    #         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft,
-    #         model.data(index, ListModel.NameRole)
-    #     )
-
-    #     # 绘制数值（保留2位小数）
-    #     painter.drawText(
-    #         regions["value"],
-    #         QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight,
-    #         f"{model.data(index, ListModel.ValueRole):.2f}"
-    #     )
-
-    #     # 绘制复选框
-    #     opt = QtWidgets.QStyleOptionButton()
-    #     opt.rect = regions["checkbox"]
-    #     opt.state = QtWidgets.QStyle.State_Enabled
-    #     # if model.data(index, ListModel.CheckedRole):
-    #     if model.data(index, ListModel.ValueRole) >= 0.5:
-    #         opt.state |= QtWidgets.QStyle.State_On
-    #     else:
-    #         opt.state |= QtWidgets.QStyle.State_Off
-    #     QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_CheckBox, opt, painter)
-    #    
     def setEditorData(self, editor, index):
         if isinstance(editor, QtWidgets.QLineEdit):
             field = editor.property("field")
@@ -660,51 +637,7 @@ class Qt_shapekey(QWidget):
             self.sync_col_combox.setCurrentIndex(idx)
         self.sync_col_combox.blockSignals(False)
 
-    # def update_shape_keys(self, new_sks=None):
-    #     from .ui_vrc_panel import  on_shape_key_index_change
 
-    #     print('更新sk列表')
-
-    #     # 1. 取出当前对象的所有 shape keys
-    #     self.qt_window.get_obj()
-    #     if not has_shapekey(self.qt_window.obj):
-    #         items=[]
-    #     else:
-    #         sk_blocks = self.qt_window.obj.data.shape_keys.key_blocks
-
-    #         # 2. 构造 Item 列表：用实际的 sk.value 而不是 0.0
-    #         items = [Item(sk.name, sk.value) for sk in sk_blocks]
-        
-
-    #     # 3. 更新 Model
-    #     self.model.beginResetModel()
-    #     self.model._items = items
-    #     self.model.endResetModel()
-
-    #     # 4. 刷新过滤器 & Blender 激活 key
-    #     self.proxy.invalidateFilter()
-
-    #     # —— 新增：选中并滚动到激活的 shape key —— #
-    #     idx = self.qt_window.obj.active_shape_key_index
-    #     if idx != -1:
-    #         # 先把源 model 的行映射到 proxy
-    #         src_index  = self.model.index(idx, 0)
-    #         proxy_index = self.proxy.mapFromSource(src_index)
-
-    #         # 选中这一行
-    #         self.list_view.list_view.setCurrentIndex(proxy_index)
-    #         # 滚动列表：居中显示
-    #         self.list_view.list_view.scrollTo(proxy_index,
-    #             QAbstractItemView.PositionAtCenter
-    #         )
-
-    #     # —— 新增日志，看看 mapFromSource 用的 index 和 proxy 是否匹配 —— #
-    #     src_index  = self.model.index(idx, 0)
-    #     print(f"[update_shape_keys] source idx  {src_index}: row={src_index.row()}, model={src_index.model()}")
-    #     proxy_index = self.proxy.mapFromSource(src_index)
-    #     print(f"[update_shape_keys] proxy idx   {proxy_index}: row={proxy_index.row()}, model={proxy_index.model()}")
-
-    #     bpy.app.timers.register(partial(on_shape_key_index_change, self.qt_window))
     def update_shape_keys(self, new_blocks=None):
         """
         Incremental 更新模型：只对比新增/删除的 key，而非整体 reset
@@ -797,6 +730,7 @@ class Qt_shapekey(QWidget):
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
+        self.qt_window.get_obj()
         bpy.app.timers.register(func)
 
     def button_check_handler(self,checked):
@@ -805,6 +739,7 @@ class Qt_shapekey(QWidget):
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
+        self.qt_window.get_obj()
         bpy.app.timers.register(partial(func, checked))
 
     def on_item_clicked(self, index):

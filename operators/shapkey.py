@@ -105,8 +105,8 @@ class RenameShapeKeyApplier(bpy.types.Operator):
         # Regardless of what the max was before, 1.0 will now fully undo the applied shape key
         new_basis_shapekey.slider_max = 1.0
 
-        response_message = 'ShapeKeyApplier.successRemoved' if reverted else 'ShapeKeyApplier.successSet'
-        self.report({'INFO'}, response_message, name=old_name)
+        # response_message = 'ShapeKeyApplier.successRemoved' if reverted else 'ShapeKeyApplier.successSet'
+        # self.report({'INFO'}, response_message, name=old_name)
         return {'FINISHED'}
 
     class ReverseRelativeMap:

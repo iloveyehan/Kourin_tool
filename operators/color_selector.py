@@ -388,12 +388,12 @@ class EmbeddedQtWidget(QWidget):
         # self.customColorPicker.show()
         self.label = QLabel("请输入多行内容：")
         from PySide6.QtWidgets import QTextEdit
-        self.text_edit = QTextEdit()
-        self.text_edit.setPlaceholderText("可输入多行文本")
-        self.text_edit.textChanged.connect(self.on_text_changed)
+        # self.text_edit = QTextEdit()
+        # self.text_edit.setPlaceholderText("可输入多行文本")
+        # self.text_edit.textChanged.connect(self.on_text_changed)
 
         layout.addWidget(self.label)
-        layout.addWidget(self.text_edit)
+        # layout.addWidget(self.text_edit)
         self.setLayout(layout)
         self.setWindowOpacity(1)
         self.update()

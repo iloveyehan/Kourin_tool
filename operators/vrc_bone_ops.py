@@ -2,6 +2,8 @@ import bpy
 from pathlib import Path
 import numpy as np
 
+from .vertex_group import determine_and_convert
+
 from ..utils.mesh_data_transfer import MeshData
 from ..utils.armature import finde_common_bones, pose_to_reset
 
@@ -373,3 +375,45 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
                 print('删除',bname)
 
         bpy.ops.object.mode_set(mode='POSE')
+class Kourin_sync_active_bone_name(bpy.types.Operator):
+    """同步两个Armature的Active Bone名称"""
+    bl_idname = "kourin.sync_active_bone_name"
+    bl_label = "同步Active Bone名称"
+    bl_options = {'REGISTER', 'UNDO'}
+    mirror: bpy.props.BoolProperty(
+        name="镜像处理",
+        description="对选中骨骼的对称骨骼执行相同操作",
+        default=True
+    )
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE'
+    def execute(self, context):
+        # 获取当前选中的两个Armature对象
+        armatures = [obj for obj in context.selected_objects if obj.type == 'ARMATURE']
+        armature = context.active_object
+        active_bone = context.active_bone
+        # 获取镜像骨骼名称
+        mirror_active_name = determine_and_convert(active_bone.name)[2]
+
+        if len(armatures) != 2:
+            self.report({'ERROR'}, "请确保选中了两个Armature对象")
+            return {'CANCELLED'}
+        ac_bone_name=bpy.context.active_pose_bone.name
+        for a in armatures:
+            if a==bpy.context.active_object:
+                continue
+            mirror_name = determine_and_convert(a.data.bones.active.name)[2]
+            print('mirror_name',mirror_name,'mirror_active_name',mirror_active_name)
+            if self.mirror:
+                print('mirror mirror_name',mirror_name,'mirror_active_name',mirror_active_name)
+                mirror_bone = a.data.bones.get(mirror_name)
+                print(mirror_bone)
+                if mirror_bone is not None:
+                    mirror_bone.name=mirror_active_name
+                    
+            a.data.bones.active.name=ac_bone_name
+        
+        self.report({'INFO'}, f"已将第二个Armature的Active Bone名字改为: {ac_bone_name}")
+        return {'FINISHED'}

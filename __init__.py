@@ -129,10 +129,12 @@ if is_pyside6_installed():
     from .preference.AddonPreferences import reg_pref,unreg_pref
     from .panels.main_button import main_button_register,main_button_unregister
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
+    from .ui.ui_sculpt import reg_sculpt_menu,unreg_sculpt_menu
     from .operators.draw import reg_draw_info,unreg_draw_info
     from .operators.vertex_group import reg_vrc_vg_ops,unreg_vrc_vg_ops
     from .operators.shapkey import reg_vrc_sk_ops,unreg_vrc_sk_ops
     def reg_all():
+
         reg_vrc_vg_ops()
         reg_vrc_sk_ops()
         reg_vrc_bone_ops()
@@ -144,6 +146,7 @@ if is_pyside6_installed():
 
         reg_pref()
         reg_ui_vrc_panel()
+        reg_sculpt_menu()
         add_properties(_addon_properties)
     def unreg_all():
         unreg_vrc_vg_ops()
@@ -151,6 +154,7 @@ if is_pyside6_installed():
         main_button_unregister()
         remove_properties(_addon_properties)
         unreg_ui_vrc_panel()
+        unreg_sculpt_menu()
         unreg_origin()
         unreg_trans()
         unreg_vrc_bone_ops()

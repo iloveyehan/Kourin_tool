@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import QPushButton
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QEvent,QEventLoop
+from PySide6.QtCore import QRect, QTimer, QTranslator, QSize, QSettings,QEvent,QEventLoop
+from PySide6.QtGui import QRegion
 from .qt_load_icon import icon_from_dat
 from .qt_global import GlobalProperty as GP
 class Button(QPushButton):
-    def __init__(self,text,icon_path=None,size=(20,20)):
-        super().__init__()
+    def __init__(self,text,icon_path=None,size=(20,20),parent=None):
+        super().__init__(parent)
         self.setText(f"{text}")
         self.setStyleSheet("""
             Button:pressed {
@@ -19,7 +20,6 @@ class Button(QPushButton):
             self.setIcon(my_icon)
             self.setIconSize(QSize(*size))
             self.setFixedSize(*size)
-
     def update_button_state(self,prop):
         if prop in ['vg_left','vg_right']:
             condition=GP.get().vg_middle or GP.get().vg_mul

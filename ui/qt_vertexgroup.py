@@ -61,7 +61,7 @@ class VgItemDelegate(QStyledItemDelegate):
     # DRAG_ROLE       = Qt.UserRole + 99
     def __init__(self, parent=None, main_widget=None):
         super().__init__(parent)
-        self.main_widget=main_widget
+        self.qt_window=main_widget
 
 
 
@@ -141,9 +141,9 @@ class VgItemDelegate(QStyledItemDelegate):
             if field == "name":
                 model.setData(index, editor.text(), VgListModel.NameRole)
                 # print('editor.text()',str(index.data(VgListModel.NameRole)))
-                if self.main_widget.obj is not None:
+                if self.qt_window.obj is not None:
                         print('正在输入2')
-                        self.main_widget.obj.vertex_groups[self.vg_name].name=editor.text()
+                        self.qt_window.obj.vertex_groups[self.vg_name].name=editor.text()
                 
             editor.setFocus(Qt.OtherFocusReason)
     def updateEditorGeometry(self, editor, option, index):
@@ -160,7 +160,7 @@ class VgItemDelegate(QStyledItemDelegate):
 class QtVertexGroup(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.main_widget=parent
+        self.qt_window=parent
         self._last_active_pose_bone=None
         # self.refresh_vertex_groups()
         self._build_ui()
@@ -226,6 +226,7 @@ class QtVertexGroup(QWidget):
             ('vg_select_v.png','vg_select_v','选中当前组的顶点'),
             ('vg_rm_select.png','vg_rm_select','把选中的顶点移出顶点组'),
             ('vg_trans_modi.png','vg_trans_modi','添加数据传递修改器'),
+            ('modi_shrink.png','vg_shrink_modi','添加缩裹修改器'),
         ]:
             btn = Button('', icon)
             btn.setProperty('bt_name', name)
@@ -309,6 +310,7 @@ class QtVertexGroup(QWidget):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}", None)
         if func:
+            self.qt_window.get_obj()
             bpy.app.timers.register(func)
     def button_check_handler(self,):
         from .qt_global import GlobalProperty as GP 
@@ -327,13 +329,13 @@ class QtVertexGroup(QWidget):
             print("设置失败：", e)
     @undoable
     def handle_add_vg(self):
-        obj = self.main_widget.obj
+        obj = self.qt_window.obj
         if obj:
             obj.vertex_groups.new(name="Group")
         self.refresh_vertex_groups()
     @undoable
     def handle_rm_vg(self):
-        obj = self.main_widget.obj
+        obj = self.qt_window.obj
         selected_indexes = self.list_view.selectedIndexes()
         if obj and selected_indexes:
             index = selected_indexes[0].row()
@@ -377,6 +379,13 @@ class QtVertexGroup(QWidget):
         mode_t=bpy.context.object.mode
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.kourin.vg_trans_modi()
+        bpy.ops.object.mode_set(mode=mode_t)
+        self.refresh_vertex_groups()
+    @undoable
+    def handle_vg_shrink_modi(self):
+        mode_t=bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.kourin.vg_shrink_modi()
         bpy.ops.object.mode_set(mode=mode_t)
         self.refresh_vertex_groups()
     def handle_vg_left(self,btname):
@@ -474,13 +483,13 @@ class QtVertexGroup(QWidget):
         indexes = self.list_view.selectedIndexes()
         if not indexes:
             return
-        obj = self.main_widget.obj
+        obj = self.qt_window.obj
         if obj:
             index = indexes[0].row()
             obj.vertex_groups.active_index = index
     def refresh_vertex_groups(self):
         """同步 Blender 的顶点组到 Qt"""
-        obj = self.main_widget.obj
+        obj = self.qt_window.obj
         if obj and obj.type == 'MESH':
             names = [VgItem(vg.name) for vg in obj.vertex_groups]
         else:
@@ -496,7 +505,7 @@ class QtVertexGroup(QWidget):
         obj = bpy.context.view_layer.objects.active
         if obj is None:return None
         if obj.type!='MESH':return None
-        # if self.main_widget is not None:
+        # if self.qt_window is not None:
         index=self.model.index((obj.vertex_groups.active_index))
         self.list_view.setCurrentIndex(index)
         return None
