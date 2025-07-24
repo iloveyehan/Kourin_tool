@@ -117,6 +117,10 @@ class Sculptwheel(QWidget):
         self._layout_step = 0
         self._detect_step = 0
 
+        # 注意：后面我们要用 total_slots 覆盖原来的 _detect_span/_detect_step
+        self._detect_start = None
+        self._detect_step  = None
+
         # 容差：允许射线越过圆中心往左延伸的像素数
         # self._x_tolerance = 60
         # 鼠标当前位置（本地坐标），用于绘制射线
@@ -165,15 +169,25 @@ class Sculptwheel(QWidget):
         if n <2:
             return
 
-        # 重新计算步长
-        # 根据布局 span 计算布局步长
+        # 布局仍然在 180° 上均分
+        self._layout_span = math.pi
         self._layout_step = self._layout_span / (n - 1)
-        # 根据检测 span 计算检测步长
-        self._detect_step = self._detect_span / (n - 1)
 
+        # 1) 计算“唯一槽位”数量（半圈逻辑）
+        unique_slots = (n-2)*2 + 2    # = (6-2)*2 +2 = 10
+
+        # 2) 全圆槽位 = unique_slots * 2
+        total_slots = unique_slots * 2  # = 20
+
+        # 3) 每槽角度
+        self._detect_step = 2 * math.pi / total_slots
+
+        # 4) 检测起始角度要左移1格，这样槽 0 的起点点就在 -90° 上
+        self._detect_start = self._layout_start_angle - self._detect_step
+
+        # … 完成按钮布局（和你原来的一样） …
         center = QPointF(self.width()/2, self.height()/2)
         for i, (icon, bt_name) in enumerate(entries):
-            # 布局用 layout_start_angle + layout_step * i
             angle = self._layout_start_angle + self._layout_step * i
             x = center.x() + math.cos(angle) * self.radius
             y = center.y() + math.sin(angle) * self.radius
@@ -261,26 +275,44 @@ class Sculptwheel(QWidget):
         painter.setPen(pen_line)
         center = QPointF(self.width()/2, self.height()/2)
         painter.drawLine(center, self._last_mouse_pos)
-        painter.drawText(10, 10, f"{QCursor.pos().x():.1f}, {QCursor.pos().y():.1f}")
-
-    def mouseMoveEvent(self, event):  
-        # print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
-        super().mouseMoveEvent(event)
-
-    def keyReleaseOps(self):
+        # painter.drawText(10, 10, f"{QCursor.pos().x():.1f}, {QCursor.pos().y():.1f}")
         center = QPointF(self.width()/2, self.height()/2)
         dx = self._last_mouse_pos.x() - center.x()
         dy = self._last_mouse_pos.y() - center.y()
 
         angle = math.atan2(dy, dx)
-        # 用检测起始角度和 span
-        rel = (angle - self._detect_start_angle) % (2 * math.pi)
+        rel = (angle - self._detect_start) % (2 * math.pi)
 
+        # 1) 先算出落在哪个槽（0..total_slots-1）
+        slot_idx = int(rel / self._detect_step)
+        painter.drawText(10, 10, f"{angle}{'='}{slot_idx}")
+    def mouseMoveEvent(self, event):  
+        # print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
+        super().mouseMoveEvent(event)
+
+    def keyReleaseOps(self):
+        n = len(self.buttons)
+        center = QPointF(self.width()/2, self.height()/2)
+        dx = self._last_mouse_pos.x() - center.x()
+        dy = self._last_mouse_pos.y() - center.y()
+
+        angle = math.atan2(dy, dx)
+        # 以 _detect_start 为 0，走全圆 2π
+        rel = (angle - self._detect_start) % (2 * math.pi)
         if rel > self._detect_span:
-            return  # 超出 220° 检测范围
+            return  # 超出检测扇形
 
-        idx = round(rel / self._detect_step)
-        idx = max(0, min(idx, len(self.buttons) - 1))
+        # 总槽位 = 按钮数 * 2（首尾各两个槽）
+        slots = n * 2
+        # 得到在哪个槽（0..slots-1）
+        slot_idx = int(rel / self._detect_step)
+
+        # 每两个槽映射到同一个 idx
+        idx = slot_idx // 2
+        # 再 clamp 到 [0, n-1]
+        idx = max(0, min(idx, n - 1))
+
+        # 触发
         self.buttons[idx].click()
         print(f"点击: {self.buttons[idx].property('bt_name')} idx={idx}")
     
