@@ -6,8 +6,8 @@ import sys
 import weakref
 from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout, QLabel,QHBoxLayout
 
-from PySide6.QtGui import QWindow, QMouseEvent
-from PySide6.QtCore import Qt, QTimer,QPoint,Signal
+from PySide6.QtGui import QWindow, QMouseEvent,QRegion
+from PySide6.QtCore import Qt, QTimer,QPoint,Signal,QRect
 import bpy
 import numpy as np
 
@@ -240,7 +240,12 @@ class Sculptwheel(QWidget):
     def set_blender_mouse(self, bx, by):
         self._last_mouse_pos = self.blender_to_local(bx, by)
         self.update()
-
+    def set_global_mouse(self, gx, gy):
+        """直接用屏幕全局坐标更新射线位置。"""
+        pt = QPoint(int(gx), int(gy))
+        # 把屏幕坐标映射到本控件的局部坐标
+        self._last_mouse_pos = self.mapFromGlobal(pt)
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -259,7 +264,7 @@ class Sculptwheel(QWidget):
         painter.drawText(10, 10, f"{QCursor.pos().x():.1f}, {QCursor.pos().y():.1f}")
 
     def mouseMoveEvent(self, event):  
-        print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
+        # print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
         super().mouseMoveEvent(event)
 
     def keyReleaseOps(self):
@@ -416,6 +421,21 @@ class SculptQuickWigdet(QWidget):
 class SculptMenuWidget(QWidget):
     def __init__(self, context, parent_hwnd, init_pos):
         super().__init__()
+        # Windows 平台下使用原生窗口属性
+        if platform.system() == "Windows":
+            self.setAttribute(Qt.WA_NativeWindow, True)
+
+        # 嵌入 Blender 主窗口
+        blender_window = QWindow.fromWinId(parent_hwnd)
+        if blender_window.screen() is None:
+            raise RuntimeError("无效的父窗口")
+        self.windowHandle().setParent(blender_window)
+
+        h=blender_window.screen().geometry().height()
+        w=blender_window.screen().geometry().width()
+        # 设置窗口大小和初始位置
+        self.resize(w, h)
+
         self.context = context
         self._blender_qwindow = QWindow.fromWinId(parent_hwnd)
         self._blender_qscreen = self._blender_qwindow.screen()
@@ -430,6 +450,9 @@ class SculptMenuWidget(QWidget):
         # 半透明背景和无边框
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+
+ 
+
         self.setMouseTracking(True)
         self.setStyleSheet("background-color: rgba(30,30,30,220);")
         
@@ -452,24 +475,12 @@ class SculptMenuWidget(QWidget):
         self.setLayout(self.layout)
 
 
-        # Windows 平台下使用原生窗口属性
-        if platform.system() == "Windows":
-            self.setAttribute(Qt.WA_NativeWindow, True)
-
-        # 嵌入 Blender 主窗口
-        blender_window = QWindow.fromWinId(parent_hwnd)
-        if blender_window.screen() is None:
-            raise RuntimeError("无效的父窗口")
-        self.windowHandle().setParent(blender_window)
-
-        h=blender_window.screen().geometry().height()
-        w=blender_window.screen().geometry().width()
-        # 设置窗口大小和初始位置
-        self.resize(w, h)
+        
         self.update()
         self.show()
 
     def mouseMoveEvent(self, event: QMouseEvent):
+
         super().mouseMoveEvent(event)
     def closeEvent(self, event):
         """确保关闭时停止定时器"""
@@ -535,8 +546,13 @@ class QtSculptMenuOperator(bpy.types.Operator):
     def execute(self, context):
         
         return {'RUNNING_MODAL'}
+    def get_mouse_pos(self):
+        pt = wintypes.POINT()
+        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+        return pt.x, pt.y
     def modal(self, context, event):
         if event.type == 'SPACE' and event.value == 'PRESS':
+            # print('123')
             if self._qt_window_ref and self._qt_window_ref():
                 window = self._qt_window_ref()
                 window.show()
@@ -544,12 +560,12 @@ class QtSculptMenuOperator(bpy.types.Operator):
                 if platform.system() == "Windows":
                     window.winId()  # 强制创建窗口句柄
                 window.raise_()
-                window.Sculptwheel.set_blender_mouse(event.mouse_x, event.mouse_y)
-                print('bl',event.mouse_x,event.mouse_y)
+                window.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
+                # print('bl',event.mouse_x,event.mouse_y)
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
             # 把 Blender 坐标先给 Sculptwheel，内部会做转换并重绘
             sculptwheel = self._qt_window_ref().Sculptwheel
-            sculptwheel.set_blender_mouse(event.mouse_x, event.mouse_y)
+            sculptwheel.set_global_mouse(*self.get_mouse_pos())
             sculptwheel.keyReleaseOps()
             self._cleanup()
             return {'FINISHED'}
