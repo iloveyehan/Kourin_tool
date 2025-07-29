@@ -50,11 +50,21 @@ def unregister_keymaps(keymaps):
 import importlib
 import sys
 # 检测是否安装了 PySide6
+print_1=False
 def is_pyside6_installed():
+    global print_1
     try:
         import PySide6
+        from ..extern import robust_weight_transfer
+        import robust_laplacian
+        if not print_1:
+            print('[DEBUG]','pyside6已安装')
+            print_1=True
         return True
     except ImportError:
+        if not print_1:
+            print('[DEBUG]','pyside6没安装')
+            print_1=True
         return False
 from pathlib import Path
 def get_path():

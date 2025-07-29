@@ -3,6 +3,8 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, Q
 import re
 import bpy
 
+from .qt_toastwindow import ToastWindow
+
 from .ui_widgets import Button
 from ..utils.utils import undoable
 
@@ -45,10 +47,21 @@ class CheckWidget(QWidget):
         self.setLayout(layout)
 
     def button_handler(self):
+        self.msg='操作完成'
         name = self.sender().property('bt_name')
         func = getattr(self, f'handle_{name}')
         # 定时注册以确保在主线程执行
-        bpy.app.timers.register(func)
+        def wrapped_func():
+            func()  # 原函数执行
+            # 然后注册 toast 显示（下一帧）
+            def show_toast():
+                toast = ToastWindow(self.msg, parent=self.edit_widget)
+                toast.show_at_center_of()
+                return None  # 一次性定时器
+            bpy.app.timers.register(show_toast)
+            return None  # 一次性定时器
+
+        bpy.app.timers.register(wrapped_func)
 
     @undoable
     def handle_check_scene(self):

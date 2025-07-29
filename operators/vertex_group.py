@@ -428,15 +428,39 @@ class Kourin_mirror_weight(bpy.types.Operator):
 
     def execute(self, context):
 
-        temp_mode = bpy.context.object.mode
+        temp_mode = context.object.mode
+        maybe_a=[]
+        true_a=None
+        pose_position=False
+        for o in context.selected_objects:
+            if o.type=='ARMATURE':
+                maybe_a.append(o)
+        if len(context.object.modifiers):#确保只有一个可用的骨骼修改器
+            n=0
+            for m in context.object.modifiers:
+                if m.type=='ARMATURE' and m.show_viewport and m.object:
+                    n=n+1
+            if n>1:
+                self.msg='有多个可用的骨骼修改器,先禁用多余的'
+                self.report({"INFO"}, _(self.msg))
+                bpy.ops.object.mode_set(mode=temp_mode)
+                return {'CANCELLED'}
+            for m in context.object.modifiers:
+                if m.type=='ARMATURE' and m.show_viewport and m.object:
+                    if m.object in maybe_a and m.object.mode=='POSE':
+                        pose_position=m.object.data.pose_position
+                        true_a=m.object
+                        m.object.data.pose_position = 'REST'
 
         # 确保Blender处于对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
-        model_a = bpy.context.view_layer.objects.active
+        model_a = context.view_layer.objects.active
         model_a.select_set(True)
         if not hasattr(model_a.vertex_groups.active,'name'):
             self.report({"INFO"}, _("选中了没权重的骨骼!"))
             bpy.ops.object.mode_set(mode=temp_mode)
+            if true_a:
+                true_a.data.pose_position=pose_position
             return {'CANCELLED'}
         # ms = model_a.mirror_settings
         '''按选择骨骼镜像时，处理方式不同'''
@@ -447,6 +471,8 @@ class Kourin_mirror_weight(bpy.types.Operator):
             if check_for_matching_pairs(v_groups, sides):
                 self.report({"ERROR"}, "You cannot select both left and right bones simultaneously!")
                 bpy.ops.object.mode_set(mode=temp_mode)
+                if true_a:
+                    true_a.data.pose_position=pose_position
                 return {'CANCELLED'}
             # 对称权重
             model_b_sym, model_c_sym, active_vg_name = self.create_mirrored(model_a, 'model_b_sym', 'model_c_sym')
@@ -551,6 +577,10 @@ class Kourin_mirror_weight(bpy.types.Operator):
         model_a.vertex_groups.active_index = model_a.vertex_groups.find(mirrored)
         bpy.context.view_layer.objects.active = model_a
         bpy.ops.object.mode_set(mode=temp_mode)
+        #还原骨架的姿态
+        if true_a:
+            true_a.data.pose_position=pose_position
+
         self.report({"INFO"}, _("Mirror completed!"))
         return {'FINISHED'}
 
@@ -609,6 +639,7 @@ class Kourin_vg_trans_modi(bpy.types.Operator):
         return context.active_object and context.active_object.type=='MESH'
 
     def execute(self, context):
+        from ..ui.qt_global import GlobalProperty
         obj = context.object
         if not obj or obj.type != 'MESH':
             return {'CANCELLED'}
@@ -620,7 +651,8 @@ class Kourin_vg_trans_modi(bpy.types.Operator):
         # 添加 Data Transfer
         mod = obj.modifiers.new(name="TransferToRig", type='DATA_TRANSFER')
         # 源设为已经 rig 的 mesh（假设与 armature 同名后缀）
-        # mod.object = mesh  # 若骨架本身是 mesh（有权重），这里指向 source mesh
+        settings = bpy.context.scene.kourin_weight_transfer_settings
+        mod.object=settings.source_object
         mod.use_vert_data = True
         mod.data_types_verts = {'VGROUP_WEIGHTS'}
         mod.vert_mapping = 'POLYINTERP_NEAREST'

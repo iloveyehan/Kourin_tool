@@ -5,7 +5,8 @@ class GlobalProperty:
         self.imgui_vrc_instance=[]
         self.debug=True
 
-
+        #权重传送
+        self.that_obj=None
         #镜像顶点组
         self.vg_left=False
         self.vg_right=False

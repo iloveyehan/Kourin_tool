@@ -1,3 +1,4 @@
+import importlib
 import subprocess
 import sys
 import typing
@@ -14,6 +15,8 @@ from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_
 from .reg import keys
 from .update import KourinCheckUpdateOperator
 from . import zh_CN
+
+
 # Add-on info
 bl_info = {
     "name": "Kourin_tool",
@@ -54,6 +57,7 @@ class InstallPysideOperator(Operator):
             # 安装Pyside6库
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyside6"])
             # subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt6"])
+            bpy.ops.kourin.install_rwt_dependencies()
             self.report({'INFO'}, "Pyside6 installed successfully.")
         except Exception as e:
             self.report({'ERROR'}, str(e))
@@ -126,13 +130,15 @@ if is_pyside6_installed():
     from .operators.vrc_bone_ops import reg_vrc_bone_ops,unreg_vrc_bone_ops
     # from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
 
-    from .preference.AddonPreferences import reg_pref,unreg_pref
     from .panels.main_button import main_button_register,main_button_unregister
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
     from .ui.ui_sculpt import reg_sculpt_menu,unreg_sculpt_menu
+    from .ui.ui_edit import reg_edit_menu,unreg_edit_menu
+    from .ui.ui_weight_paint import reg_weight_paint_menu,unreg_weight_paint_menu
     from .operators.draw import reg_draw_info,unreg_draw_info
     from .operators.vertex_group import reg_vrc_vg_ops,unreg_vrc_vg_ops
     from .operators.shapkey import reg_vrc_sk_ops,unreg_vrc_sk_ops
+    from .extern.robust_weight_transfer import Robust_register,Robust_unregister
     def reg_all():
 
         reg_vrc_vg_ops()
@@ -140,13 +146,17 @@ if is_pyside6_installed():
         reg_vrc_bone_ops()
         reg_draw_info()
         reg_origin()
-        main_button_register()
+        
         reg_trans()
         reg_color_selector()
 
-        reg_pref()
+        
         reg_ui_vrc_panel()
         reg_sculpt_menu()
+        reg_edit_menu()
+        reg_weight_paint_menu()
+        Robust_register()
+        main_button_register()
         add_properties(_addon_properties)
     def unreg_all():
         unreg_vrc_vg_ops()
@@ -155,12 +165,15 @@ if is_pyside6_installed():
         remove_properties(_addon_properties)
         unreg_ui_vrc_panel()
         unreg_sculpt_menu()
+        unreg_edit_menu()
+        unreg_weight_paint_menu()
+        Robust_unregister()
         unreg_origin()
         unreg_trans()
         unreg_vrc_bone_ops()
         unreg_color_selector()
 
-        unreg_pref()
+        
         unreg_draw_info()
 else:
     # print(2)
@@ -170,9 +183,10 @@ else:
         pass
 from .preference.AddonPreferences import reg_pref,unreg_pref
 def register():
+    reg_pref()#必须注册插件设置面板
     bpy.utils.register_class(InstallPysideOperator)
     bpy.utils.register_class(KourinCheckUpdateOperator)
-    # bpy.utils.register_class(MyAddonPreferences)
+
     
     # main_button_register()
     #翻译
@@ -200,6 +214,7 @@ def register():
     keymaps = register_keymaps([keys[v] for v in keys])
 
 def unregister():
+
     # main_button_unregister()
     bpy.utils.unregister_class(InstallPysideOperator)
     bpy.utils.unregister_class(KourinCheckUpdateOperator)
@@ -210,16 +225,7 @@ def unregister():
         Kourin_tool_zh_CN.unregister()
         Kourin_tool_zh_HANS.unregister()
     unreg_all()
-    # Internationalization
-    # unRegister classes
-    # remove_properties(_addon_properties)
-    # unreg_origin()
-    # unreg_trans()
-    # unreg_color_selector()
-    # unreg_tool_vert()
-    # unreg_menu()
-    # unreg_pref()
-    # print("{} addon is uninstalled.".format(bl_info["name"]))
+    unreg_pref()#插件设置面板
     global keymaps
     if keymaps:
         unregister_keymaps(keymaps)

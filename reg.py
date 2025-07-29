@@ -12,6 +12,10 @@ keys = {
          'value': 'PRESS',},
         {'label': '3D Paint Mode', 'keymap': 'Grease Pencil', 'idname': 'qt.sculpt_menu', 'type': 'SPACE',
          'value': 'PRESS', },
+        {'label': 'Edit Mode', 'keymap': 'Mesh', 'idname': 'qt.edit_menu', 'type': 'SPACE',
+         'value': 'PRESS', },
+        {'label': 'Weight Paint Mode', 'keymap': 'Weight Paint', 'idname': 'qt.weight_paint_menu', 'type': 'SPACE',
+         'value': 'PRESS', },
     ],
     # 'SMART_VERT': [
     #     {'label': 'Merge Last', 'keymap': 'Mesh', 'idname': 'Kourin_tool.vert_merge_last', 'type': 'ONE', 'value': 'PRESS',

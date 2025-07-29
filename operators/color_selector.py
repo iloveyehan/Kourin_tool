@@ -542,8 +542,8 @@ class EmbedQtOperator(bpy.types.Operator):
             debug_print( "创建新的QApplication实例")
             app = QApplication(sys.argv)
             self.__class__._qt_app_ref = weakref.ref(app)
-        else:
-            debug_print( "使用现有QApplication实例")
+        # else:
+            # debug_print( "使用现有QApplication实例")
         return QApplication.instance()
 
     def execute(self, context):

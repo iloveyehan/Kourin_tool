@@ -1,7 +1,9 @@
+from ctypes import wintypes
+import ctypes
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel,QHBoxLayout
-from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QEvent,QEventLoop
+from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QEvent,QPoint
 class ToastWindow(QWidget):
-    def __init__(self, message="操作已完成", duration=3000, parent=None):
+    def __init__(self, message="操作已完成", duration=700, parent=None,):
         super().__init__(parent)
         self.setWindowFlags(
             Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.X11BypassWindowManagerHint
@@ -15,7 +17,7 @@ class ToastWindow(QWidget):
         self.label.setStyleSheet("""
             QLabel {
                 color: white;
-                background-color: rgba(0, 0, 0, 20);
+                background-color: rgba(0, 0, 0, 160);
                 padding: 10px;
                 border-radius: 10px;
                 font-size: 16px;
@@ -30,7 +32,17 @@ class ToastWindow(QWidget):
         # 自动关闭
         QTimer.singleShot(duration, self.close)
 
-    def show_at_center_of(self, parent_widget):
-        parent_center = parent_widget.geometry().center()
-        self.move(parent_center - self.rect().center())
+    def show_at_center_of(self):
+        x,y=self.get_mouse_pos()
+        self.move(self.get_mouse(x+100,y))
         self.show()
+    def get_mouse_pos(self):
+        pt = wintypes.POINT()
+        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+        return pt.x, pt.y
+    def get_mouse(self, gx, gy):
+        """直接用屏幕全局坐标更新射线位置。"""
+        pt = QPoint(int(gx), int(gy))
+        # 把屏幕坐标映射到本控件的局部坐标
+        self.mouse_pos = self.mapFromGlobal(pt)
+        return self.mouse_pos

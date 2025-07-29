@@ -2,6 +2,8 @@ from pathlib import Path
 import bpy
 import numpy as np
 
+from ..utils.mesh_data_transfer import MeshData
+
 from ..common.class_loader.auto_load import ClassAutoloader
 vrc_sk_ops=ClassAutoloader(Path(__file__))
 def reg_vrc_sk_ops():
@@ -526,4 +528,100 @@ class RenameShapeKeyPruner(bpy.types.Operator):
             report_messages.append('ShapeKeyPruner.nothingRemoved')
 
         self.report({'INFO'}, " \n".join(report_messages))
+        return {'FINISHED'}
+    
+
+class KourinApylyModiWithShapekey(bpy.types.Operator):
+    '''应用带形态键的模型的修改器'''
+    bl_idname = "kourin.apply_modi_with_shapekey"
+    bl_label = "应用带形态键的模型的修改器"
+    bl_options = {'REGISTER', 'UNDO'}
+    mod_name: bpy.props.StringProperty(
+        default=''
+    )
+
+    @classmethod
+    def poll(cls, context):
+
+        return 1
+
+    def execute(self, context):
+        '''
+
+        要遍历修改器，暂时关闭其他修改器
+        先get graph
+        然后保存模型的每个形态键的状态
+        删除所有形态键
+        然后应用修改器，然后再传回去
+        再开启其他修改器
+        有可能会报错
+        镜像修改器：
+        应用镜像修改器时，有的形态键左右交叉了，造成顶点数不匹配
+        '''
+        if self.mod_name == 'all':
+
+            print('ApylyModiWithShapekey',self.mod_name)
+
+            # print(self.mod_name)
+
+            # 生成meshdata
+            apply_all = MeshData(context.active_object, deformed=True)
+
+            # 生成形态键坐标组,形态键值 清单
+            sk_array = apply_all.get_shape_keys_vert_pos()
+            sk_values = apply_all.store_shape_keys_name_value()
+
+            # 删除形态键 应用修改器
+            with bpy.context.temp_override(active_object=apply_all.obj):
+                bpy.ops.object.shape_key_remove(all=True)
+                bpy.ops.object.convert(target='MESH')
+
+            # 还原形态键
+            # a=0
+            for sk in sk_array:
+
+                apply_all.set_position_as_shape_key(shape_key_name=sk, co=sk_array[sk],
+                                                    value=sk_values[sk])
+
+
+        else:
+            # print(self.mod_name)
+            mod_temp = bpy.context.active_object.modifiers
+            mod_off = {}
+            for modi in mod_temp:
+                # 记录修改器状态
+                mod_off[modi.name] = bpy.context.active_object.modifiers[modi.name].show_viewport
+                if self.mod_name == modi.name:
+                    # 跳过当前修改
+                    continue
+                else:
+                    # 暂时关闭其他修改器
+                    bpy.context.active_object.modifiers[modi.name].show_viewport = False
+
+            # 生成meshdata
+            obj=bpy.context.active_object
+            apply_single = MeshData(context.active_object, deformed=True)
+            # apply_single = MeshDataTransfer(source=obj, thisobj=obj,
+            #                                  deformed_source=True)
+            # 生成形态键坐标组,形态键值 清单
+            sk_array = apply_single.get_shape_keys_vert_pos()
+            sk_values = apply_single.store_shape_keys_name_value()
+
+            # 删除形态键 应用修改器
+            with bpy.context.temp_override(active_object=obj):
+                bpy.ops.object.shape_key_remove(all=True)
+                bpy.ops.object.modifier_apply(modifier=self.mod_name)
+            # 还原形态键
+            for sk in sk_array:
+                apply_single.set_position_as_shape_key(shape_key_name=sk, co=sk_array[sk], value=sk_values[sk])
+
+            for modi in mod_temp:
+                # modi_contr[modi.name]=bpy.context.active_object.modifiers[modi.name].show_viewport
+                if self.mod_name == modi.name:
+                    # 跳过当前修改
+                    continue
+                else:
+                    # 暂时关闭其他修改器
+                    bpy.context.active_object.modifiers[modi.name].show_viewport = mod_off[modi.name]
+        self.report({'INFO'}, '应用完了')
         return {'FINISHED'}

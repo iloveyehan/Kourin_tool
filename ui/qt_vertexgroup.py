@@ -7,6 +7,8 @@ from PySide6.QtCore import Qt, QStringListModel,QEvent,QAbstractListModel,QModel
 from PySide6.QtGui import QColor
 import bpy
 
+from .qt_toastwindow import ToastWindow
+
 from ..utils.utils import undoable
 
 class VgItem:
@@ -253,7 +255,7 @@ class QtVertexGroup(QWidget):
             ['零','rm_all_unused','删除0权重顶点组,所有物体'],
             ['rigify','vg_rigify','添加DEF-前缀'],
             ['普通','vg_normal','删除DEF-前缀'],
-            ['剪切','vg_copy','复制权重并删除源'],
+            ['剪切','vg_cut','复制权重并删除源'],
             ['粘贴','vg_paste','粘贴权重'],
         ]:
             btn = Button(name)
@@ -307,11 +309,22 @@ class QtVertexGroup(QWidget):
         main_layout.addWidget(outer_splitter)
         self.setLayout(main_layout)
     def button_handler(self):
+        self.msg='操作完成'
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}", None)
         if func:
             self.qt_window.get_obj()
-            bpy.app.timers.register(func)
+            def wrapped_func():
+                func()  # 原函数执行
+                # 然后注册 toast 显示（下一帧）
+                def show_toast():
+                    toast = ToastWindow(self.msg, parent=self.edit_widget)
+                    toast.show_at_center_of()
+                    return None  # 一次性定时器
+                bpy.app.timers.register(show_toast)
+                return None  # 一次性定时器
+
+            bpy.app.timers.register(wrapped_func)
     def button_check_handler(self,):
         from .qt_global import GlobalProperty as GP 
         name = self.sender().property('bt_name')
@@ -359,7 +372,7 @@ class QtVertexGroup(QWidget):
         bpy.ops.object.mode_set(mode=mode_t)
         self.refresh_vertex_groups()
     @undoable
-    def handle_vg_copy(self):
+    def handle_vg_cut(self):
         # mode_t=bpy.context.object.mode
         # bpy.ops.object.mode_set(mode='EDIT')
         # bpy.ops.mesh.select_all(action='DESELECT')

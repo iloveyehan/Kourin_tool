@@ -33,7 +33,6 @@ from .qt_load_icon import icon_from_dat
 from .qt_utils import refocus_blender_window
 from .qt_vertexgroup import QtVertexGroup
 from .qt_toastwindow import ToastWindow
-
 from .qt_preprocessing import PreprocesseWigdet
 
 from .qt_toolbox import ToolBox
@@ -377,8 +376,9 @@ def update_window_layer():
 
 
 class MyQtWindow(QWidget):
-    def __init__(self,hwnd,last_pos=None):
+    def __init__(self,hwnd,last_pos=None,ops=None):
         super().__init__()
+        self.ops=ops
         self.obj_ptr=bpy.context.view_layer.objects.active.as_pointer()
         self.obj=self.get_obj()
         self.s_ks=None
@@ -529,7 +529,7 @@ class MyQtWindow(QWidget):
 class ShowQtPanelOperator(bpy.types.Operator):
     bl_idname = "wm.show_qt_panel"
     bl_label  = "显示 PySide6 面板"
-
+    
     def execute(self, context):
         global qt_app, qt_window,last_window_pos
 
@@ -544,7 +544,7 @@ class ShowQtPanelOperator(bpy.types.Operator):
         if not qt_window or not qt_window.isVisible():
             user32 = ctypes.windll.user32
             hwnd = user32.FindWindowW("GHOST_WindowClass", None)
-            qt_window = MyQtWindow(hwnd,last_window_pos)
+            qt_window = MyQtWindow(hwnd,last_window_pos,ops=self)
             qt_window.setAttribute(Qt.WA_NativeWindow, True)  # 强制成本地窗口
             dark_stylesheet = """
                 QWidget {

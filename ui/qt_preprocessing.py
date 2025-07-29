@@ -10,8 +10,10 @@ class PreprocesseWigdet(QWidget):
     def __init__(self,parent):
         from .ui_widgets import Button
         super().__init__()
+        self.ops=parent.ops
         # 创建布局
         self.qt_window=parent
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -66,11 +68,22 @@ class PreprocesseWigdet(QWidget):
         # 设置布局到中央部件
         self.setLayout(layout)
     def button_handler(self):
+        self.msg='操作完成'
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
         func = getattr(self, f"handle_{name}")
-        bpy.app.timers.register(func)
+        def wrapped_func():
+            func()  # 原函数执行
+            # 然后注册 toast 显示（下一帧）
+            def show_toast():
+                toast = ToastWindow(self.msg, parent=self)
+                toast.show_at_center_of()
+                return None  # 一次性定时器
+            bpy.app.timers.register(show_toast)
+            return None  # 一次性定时器
+
+        bpy.app.timers.register(wrapped_func)
     def button_check_handler(self,checked):
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
@@ -81,15 +94,9 @@ class PreprocesseWigdet(QWidget):
     def handle_clean_skeleton(self):
         obj = bpy.context.active_object
         if not obj or obj.type != 'ARMATURE':
-            toast = ToastWindow("请选择一个骨骼对象", parent=self)
-            toast.show_at_center_of(self)
+            self.msg="请选择一个骨骼对象"
             return
         bpy.ops.kourin.delete_unused_bones()
-        
-        # 显示提示窗口
-        toast = ToastWindow("操作已完成", parent=self)
-        toast.show_at_center_of(self)
-
         return None
     @undoable
     def handle_combine_selected_bone_weights(self):

@@ -7,11 +7,11 @@ import weakref
 from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout, QLabel,QHBoxLayout
 
 from PySide6.QtGui import QWindow, QMouseEvent,QRegion
-from PySide6.QtCore import Qt, QTimer,QPoint,Signal,QRect
+from PySide6.QtCore import Qt, QTimer,QPoint,Signal,QRect,QEvent
 import bpy
 import numpy as np
 
-from .ui_widgets import Button
+from .ui_widgets import BaseWidget, Button
 from ..operators.color_selector import get_blender_hwnd
 
 from ..utils.color_selector import debug_print
@@ -89,11 +89,13 @@ from PySide6.QtWidgets import QApplication, QWidget, QPushButton, QGraphicsDropS
 from PySide6.QtGui import QPainter, QColor, QPen, QCursor
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize
 
+from ..operators.base_qt_ops import BaseQtOperator
 class Sculptwheel(QWidget):
     def __init__(self, radius=100, button_infos=None, parent=None):
         super().__init__(parent)
         self.setParent(parent)
         self.SculptMenuWidget = parent
+        self.ops=parent.ops
          # 半径稍微内缩
         self.radius = radius-20
         size = self.radius * 2 +40
@@ -126,6 +128,7 @@ class Sculptwheel(QWidget):
         # 鼠标当前位置（本地坐标），用于绘制射线
         self._last_mouse_pos = QPointF(self.width()/2, self.height()/2)
         self.setMouseTracking(True)
+        
         self._init_ui()
         self._dragging_widget = False
         self._widget_drag_offset = QPointF()
@@ -143,14 +146,17 @@ class Sculptwheel(QWidget):
             }
             QPushButton:pressed {
                 background-color: #003d7a;}
-            QToolTip {
+            QToolTip {  
                 background-color: #333333;
                 color: #FFFFFF;
                 border: 1px solid white;    }
             QPushButton:checked {
         background-color: #005fa0;
-        border: 2px solid #004080;
-    }
+        border: 2px solid #004080;}    
+                                  
+            QPushButton[highlighted="true"] {
+                background-color: #0077d1;
+            }
         """)
         for btn in self.buttons:
             btn.deleteLater()
@@ -202,6 +208,8 @@ class Sculptwheel(QWidget):
             effect.setBlurRadius(10)
             effect.setOffset(2, 2)
             btn.setGraphicsEffect(effect)
+            btn.setProperty("highlighted", False)
+            # btn.setMouseTracking(True)           # 开启鼠标跟踪（Hover 需要）
             # btn.installEventFilter(self)
             btn.clicked.connect(self.button_handler)
             self.buttons.append(btn)
@@ -212,7 +220,16 @@ class Sculptwheel(QWidget):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}", None)
         if func:
-            bpy.app.timers.register(func)
+            def wrapped_func():
+                func()   
+                try:
+                    self.ops._press_brush=True 
+                except:
+                    print(f'[DEBUG] raycast:brush {name}')
+            bpy.app.timers.register(wrapped_func)
+
+
+            
     @undoable
     def handle_mesh_sculpt_inflate(self):
         bpy.ops.brush.asset_activate(asset_library_type='ESSENTIALS', asset_library_identifier="", relative_asset_identifier="brushes\\essentials_brushes-mesh_sculpt.blend\\Brush\\Inflate/Deflate")
@@ -283,13 +300,25 @@ class Sculptwheel(QWidget):
         angle = math.atan2(dy, dx)
         rel = (angle - self._detect_start) % (2 * math.pi)
 
-        # 1) 先算出落在哪个槽（0..total_slots-1）
-        slot_idx = int(rel / self._detect_step)
-        painter.drawText(10, 10, f"{angle}{'='}{slot_idx}")
-    def mouseMoveEvent(self, event):  
-        # print(self._last_mouse_pos,self.mapFromGlobal(QCursor.pos()))
-        super().mouseMoveEvent(event)
+        slot = int(rel / self._detect_step)
+        candidate_idx = slot // 2
 
+        # 判断 idx 是否落在 [0, n-1] 范围内
+        if 0 <= candidate_idx < len(self.buttons):
+            valid_idx = candidate_idx
+        else:
+            valid_idx = None
+
+        # 根据 valid_idx 刷新 highlighted 属性
+        for i, btn in enumerate(self.buttons):
+            is_highlight = (i == valid_idx)
+            if btn.property("highlighted") != is_highlight:
+                btn.setProperty("highlighted", is_highlight)
+                btn.style().unpolish(btn)
+                btn.style().polish(btn)
+                btn.update()
+        
+        # super().paintEvent(event)
     def keyReleaseOps(self):
         n = len(self.buttons)
         center = QPointF(self.width()/2, self.height()/2)
@@ -314,8 +343,8 @@ class Sculptwheel(QWidget):
 
         # 触发
         self.buttons[idx].click()
-        print(f"点击: {self.buttons[idx].property('bt_name')} idx={idx}")
-    
+        # print(f"点击: {self.buttons[idx].property('bt_name')} idx={idx}")
+
 class SculptQuickWigdet(QWidget):
     def __init__(self,parent,radius):
         super().__init__()
@@ -368,11 +397,12 @@ class SculptQuickWigdet(QWidget):
         
         layout.addStretch()
         # 添加标签
-        for name,bt_name,check,tooltip in [
-            ('Vis→FS','faceset_from_visible',False,'从视图可见顶点创建面组'),
-            ('Edit→FS','faceset_from_edit',False,'从选中的顶点创建面组'),
+        for icon,bt_name,check,tooltip in [
+            ('hide_off.svg','faceset_from_visible',False,'从视图可见顶点创建面组'),
+            ('editmode_hlt.svg','faceset_from_edit',False,'从选中的顶点创建面组'),
         ]:
-            btn = Button(name)
+            btn = Button('',icon,(40,40))
+
             btn.setProperty('bt_name', bt_name)
             
             if check:
@@ -387,8 +417,9 @@ class SculptQuickWigdet(QWidget):
         for name,bt_name,check,tooltip in [
             ('拓扑','use_automasking_topology',True,'根据拓扑自动遮罩'),
             ('面组','use_automasking_face_sets',True,'根据面组自动遮罩'),
-            ('网格边界','use_automasking_boundary_edges',True,'网格边界自动遮罩'),
             ('面组边界','use_automasking_boundary_face_sets',True,'面组边界自动遮罩'),
+            ('网格边界','use_automasking_boundary_edges',True,'网格边界自动遮罩'),
+            
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -416,7 +447,7 @@ class SculptQuickWigdet(QWidget):
             btn.blockSignals(True)
             btn.setChecked(state)
             btn.blockSignals(False)
-            print(bt_name,state)
+            # print(bt_name,state)
     def button_handler(self):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
@@ -451,8 +482,9 @@ class SculptQuickWigdet(QWidget):
 
 
 class SculptMenuWidget(QWidget):
-    def __init__(self, context, parent_hwnd, init_pos):
+    def __init__(self, context, parent_hwnd, init_pos,ops=None):
         super().__init__()
+        self.ops=ops
         # Windows 平台下使用原生窗口属性
         if platform.system() == "Windows":
             self.setAttribute(Qt.WA_NativeWindow, True)
@@ -540,49 +572,26 @@ class SculptMenuWidget(QWidget):
 
         return QPointF(local_pt)
 
-class QtSculptMenuOperator(bpy.types.Operator):
+class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
     bl_idname = "qt.sculpt_menu"
     bl_label = "雕刻快捷菜单"
     
     # [!] 使用弱引用持有Qt实例
     _qt_app_ref = None
     _qt_window_ref = None
+    _press_brush=False
     @classmethod
     def poll(cls, context):
         if bpy.context.mode == 'SCULPT':#4.5
-            sculpt = True
-            return sculpt
+            return True
         return False
-    def _ensure_qt_app(self):
-        """确保存在有效的QApplication实例"""
-        if platform.system() == "Windows":
-            # 设置 DPI 感知（兼容旧版 Windows）
-            try:
-                # 尝试使用较新的 API
-                ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_AWARE
-            except Exception as e:
-                try:
-                    # 回退到旧版 API
-                    ctypes.windll.user32.SetProcessDPIAware()
-                except Exception as e2:
-                    debug_print( f"DPI 设置失败: {e2}")
-
-        if not QApplication.instance():
-            debug_print( "创建新的QApplication实例")
-            app = QApplication(sys.argv)
-            self.__class__._qt_app_ref = weakref.ref(app)
-        else:
-            debug_print( "使用现有QApplication实例")
-        return QApplication.instance()
 
     def execute(self, context):
-        
         return {'RUNNING_MODAL'}
-    def get_mouse_pos(self):
-        pt = wintypes.POINT()
-        ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
-        return pt.x, pt.y
     def modal(self, context, event):
+        if self._press_brush:#点击笔刷后关闭菜单
+            self._cleanup()
+            return {'FINISHED'}
         if event.type == 'SPACE' and event.value == 'PRESS':
             # print('123')
             if self._qt_window_ref and self._qt_window_ref():
@@ -593,7 +602,6 @@ class QtSculptMenuOperator(bpy.types.Operator):
                     window.winId()  # 强制创建窗口句柄
                 window.raise_()
                 window.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
-                # print('bl',event.mouse_x,event.mouse_y)
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
             # 把 Blender 坐标先给 Sculptwheel，内部会做转换并重绘
             sculptwheel = self._qt_window_ref().Sculptwheel
@@ -608,17 +616,9 @@ class QtSculptMenuOperator(bpy.types.Operator):
         
         return {'PASS_THROUGH'}
 
-    def _cleanup(self):
-        """安全清理资源"""
-        if self._qt_window_ref and self._qt_window_ref():
-            window = self._qt_window_ref()
-            window.close()
-            window.deleteLater()
-        if self._qt_app_ref and self._qt_app_ref():
-            app = self._qt_app_ref()
-            app.quit()
 
     def invoke(self, context, event):
+        self._press_brush=False
         mouse_pose=(event.mouse_x,event.mouse_y)
         
         # [!] 统一初始化入口
@@ -635,16 +635,7 @@ class QtSculptMenuOperator(bpy.types.Operator):
                 bpy._embedded_qt.close()
                 del bpy._embedded_qt
 
-            context_dict={
-                'mode':context.mode,
-                'area':context.area,
-                'scene':context.scene,
-                'vertex_paint':context.tool_settings.vertex_paint if hasattr(context.tool_settings,'vertex_paint') else None,
-                'image_paint':context.tool_settings.image_paint if hasattr(context.tool_settings,'image_paint') else None,
-                'gpencil_paint':context.tool_settings.gpencil_paint if hasattr(context.tool_settings,'gpencil_paint') else None,
-                'gpencil_vertex_paint':context.tool_settings.gpencil_paint if hasattr(context.tool_settings,'gpencil_vertex_paint') else None,
-            }
-            bpy._embedded_qt = SculptMenuWidget(context,parent_hwnd,init_pos=mouse_pose)
+            bpy._embedded_qt = SculptMenuWidget(context,parent_hwnd,init_pos=mouse_pose,ops=self)
 
             self.__class__._qt_window_ref = weakref.ref(bpy._embedded_qt)
 # 启动模态

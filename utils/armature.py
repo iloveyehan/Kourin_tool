@@ -3,7 +3,14 @@ import bpy
 from mathutils import Quaternion, Vector
 
 from ..utils.mesh_data_transfer import MeshData
-
+def comfirm_one_arm(obj):
+    n=0     
+    for m in obj.modifiers:
+        if m.type=='ARMATURE' and m.show_viewport and m.object is not None:
+            n=n+1
+    if n>1:
+        return False
+    return True
 
 def pose_to_reset(armature):
     '''传入骨骼物体,应用所在物体的修改器,然后应用为静置姿势,并且重新设置修改器'''
