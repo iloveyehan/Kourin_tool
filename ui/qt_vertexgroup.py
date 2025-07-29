@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
     QStyledItemDelegate, QStyle, QSplitter, QSizePolicy,QLineEdit,QAbstractItemView,QSpacerItem
 )
-from PySide6.QtCore import Qt, QStringListModel,QEvent,QAbstractListModel,QModelIndex,QRect,QSize
+from PySide6.QtCore import Qt, QStringListModel,QEvent,QAbstractListModel,QModelIndex,QRect,QSize,QSortFilterProxyModel
 from PySide6.QtGui import QColor
 import bpy
 
@@ -61,16 +61,17 @@ class VgListModel(QAbstractListModel):
         return True
 class VgItemDelegate(QStyledItemDelegate):
     # DRAG_ROLE       = Qt.UserRole + 99
-    def __init__(self, parent=None, main_widget=None):
-        super().__init__(parent)
+    def __init__(self, list_view, main_widget=None):
+        super().__init__(list_view)
         self.qt_window=main_widget
-
+        self.list_view = list_view
 
 
         # 拖拽状态
         self._dragging = False
         self._drag_start_x = 0
         self._drag_start_val = 0.0
+        
     def calculate_regions(self, option):
         # print('区域计算')
         # a=time()
@@ -107,47 +108,69 @@ class VgItemDelegate(QStyledItemDelegate):
 
         # print('绘图事件',time()-a)
     def setEditorData(self, editor, index):
-        # print('setEditorData')
-        if isinstance(editor, QLineEdit):
-            # print('正在输入')
-            field = editor.property("field")
-            if field == "name":
-                editor.setText(index.data(VgListModel.NameRole))
-            editor.setFocus(Qt.OtherFocusReason)
-    def createEditor(self, parent, option, index):
-        from .qt_shapekey import ListView
-        list_view = self.parent().list_view
-        if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
-            return None
-
-        click_pos = list_view.last_double_click_pos
-        regions = self.calculate_regions(option)
-
-        # 名称编辑器
-        if regions["name"].contains(click_pos):
-            editor = QLineEdit(parent)
-            self.vg_name=index.data(VgListModel.NameRole)
+        if isinstance(editor, QLineEdit) and editor.property('field') == 'name':
             editor.setText(index.data(VgListModel.NameRole))
-            editor.selectAll()
-            editor.setProperty("field", "name")
-            editor.setFocus(Qt.OtherFocusReason)
-            return editor
+            editor.setFocus()
+    # def setEditorData(self, editor, index):
+    #     # print('setEditorData')
+    #     if isinstance(editor, QLineEdit):
+    #         # print('正在输入')
+    #         field = editor.property("field")
+    #         if field == "name":
+    #             editor.setText(index.data(VgListModel.NameRole))
+    #         editor.setFocus(Qt.OtherFocusReason)
+    # def createEditor(self, parent, option, index):
+    #     from .qt_shapekey import ListView
+    #     list_view = self.parent().list_view
+    #     if not isinstance(list_view, ListView) or not list_view.last_double_click_pos:
+    #         return None
+
+    #     click_pos = list_view.last_double_click_pos
+    #     regions = self.calculate_regions(option)
+
+    #     # 名称编辑器
+    #     if regions["name"].contains(click_pos):
+    #         editor = QLineEdit(parent)
+    #         self.vg_name=index.data(VgListModel.NameRole)
+    #         editor.setText(index.data(VgListModel.NameRole))
+    #         editor.selectAll()
+    #         editor.setProperty("field", "name")
+    #         editor.setFocus(Qt.OtherFocusReason)
+    #         return editor
             
         
+    #     return None
+    def createEditor(self, parent, option, index):
+        click_pos = getattr(self.list_view, 'last_double_click_pos', None)
+        regions = self.calculate_regions(option)
+        if click_pos and regions['name'].contains(click_pos):
+            editor = QLineEdit(parent)
+            editor.setText(index.data(VgListModel.NameRole))
+            editor.selectAll()
+            editor.setProperty('field', 'name')
+            return editor
         return None
-
-    def setModelData(self, editor, model, index):
-        # print('setModelData')
-        if isinstance(editor, QLineEdit):
-            field = editor.property("field")
-            if field == "name":
-                model.setData(index, editor.text(), VgListModel.NameRole)
-                # print('editor.text()',str(index.data(VgListModel.NameRole)))
-                if self.qt_window.obj is not None:
-                        print('正在输入2')
-                        self.qt_window.obj.vertex_groups[self.vg_name].name=editor.text()
+    # def setModelData(self, editor, model, index):
+    #     # print('setModelData')
+    #     if isinstance(editor, QLineEdit):
+    #         field = editor.property("field")
+    #         if field == "name":
+    #             model.setData(index, editor.text(), VgListModel.NameRole)
+    #             # print('editor.text()',str(index.data(VgListModel.NameRole)))
+    #             if self.qt_window.obj is not None:
+    #                     print('正在输入2')
+    #                     self.qt_window.obj.vertex_groups[self.vg_name].name=editor.text()
                 
-            editor.setFocus(Qt.OtherFocusReason)
+    #         editor.setFocus(Qt.OtherFocusReason)
+    def setModelData(self, editor, model, index):
+        if isinstance(editor, QLineEdit) and editor.property('field') == 'name':
+            old_name = index.data(VgListModel.NameRole)
+            new_name = editor.text()
+            if old_name != new_name:
+                model.setData(index, new_name, VgListModel.NameRole)
+                obj = self.qt_window.obj
+                if obj:
+                    obj.vertex_groups[old_name].name = new_name
     def updateEditorGeometry(self, editor, option, index):
         regions = self.calculate_regions(option)
         if editor.property("field") == "name":
@@ -190,37 +213,34 @@ class QtVertexGroup(QWidget):
     def _build_ui(self):
         from .ui_widgets import Button
         from .qt_shapekey import ListView
-        # 最外层垂直分割：上部为 List+右侧， 下部为固定控件
-        outer_splitter = QSplitter(Qt.Vertical, self)
-        outer_splitter.setChildrenCollapsible(False)
-        outer_splitter.setHandleWidth(6)
+        # —— 搜索框 ——
+        self.search_edit = QLineEdit(self)
+        self.search_edit.setPlaceholderText("搜索顶点组…")
+        self.search_edit.setClearButtonEnabled(True)
 
-        # —— 上半部分：水平布局 ListView + 右侧区 —— 
-        top = QWidget()
-        top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(0)
-        
-        # 可拉伸列表
+        # —— 原始模型和代理模型 ——
+        self.model = VgListModel([])
+        self.proxy = QSortFilterProxyModel(self)
+        self.proxy.setSourceModel(self.model)
+        self.proxy.setFilterRole(VgListModel.NameRole)
+        self.proxy.setFilterCaseSensitivity(Qt.CaseInsensitive)
+
+        # 搜索输入变化时更新过滤
+        self.search_edit.textChanged.connect(self.proxy.setFilterFixedString)
+
+        # —— 列表视图 ——
         self.list_view = ListView(self)
-        self.list_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        items = []
-        self.model = VgListModel(items)
-        self.delegate = VgItemDelegate(self,self.parent())
-        self.list_view.setModel(self.model)
+        self.list_view.setModel(self.proxy)
+        self.delegate = VgItemDelegate(self.list_view, self.qt_window)
         self.list_view.setItemDelegate(self.delegate)
-        self.list_view.setEditTriggers(
-            QAbstractItemView.DoubleClicked
-        )
-
+        self.list_view.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.list_view.selectionModel().selectionChanged.connect(self.on_selection_changed)
-        
         self.list_view.setFixedHeight(140)
-        top_layout.addWidget(self.list_view)
-        # top_layout.addItem(QSpacerItem(0, 0, QSizePolicy.Minimum, QSizePolicy.Expanding))
-        vg_btn = QVBoxLayout()
-        vg_btn.setContentsMargins(0, 0, 0, 0)
-        vg_btn.setSpacing(0)
+
+        # —— 按钮组 ——
+        vg_btn_layout = QVBoxLayout()
+        vg_btn_layout.setContentsMargins(0, 0, 0, 0)
+        vg_btn_layout.setSpacing(0)
         for icon, name,tooltip in [
             ('add.svg','add_vg','新建'),
             ('remove.svg','rm_vg','移除'),
@@ -234,14 +254,28 @@ class QtVertexGroup(QWidget):
             btn.setProperty('bt_name', name)
             btn.setToolTip(tooltip)
             btn.clicked.connect(self.button_handler)
-            vg_btn.addWidget(btn)
-        vg_btn.addStretch()
-        top_layout.addLayout(vg_btn)
+            vg_btn_layout.addWidget(btn)
+        vg_btn_layout.addStretch()
 
-        outer_splitter.addWidget(top)
+        # —— 顶部分区：搜索框 + 列表 + 按钮 ——
+        top_widget = QWidget(self)
+        top_layout = QHBoxLayout(top_widget)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(4)
+        # 左侧：搜索框+列表
+        left_vbox = QVBoxLayout()
+        left_vbox.setContentsMargins(0, 0, 0, 0)
+        left_vbox.setSpacing(4)
+        left_vbox.addWidget(self.search_edit)
+        left_vbox.addWidget(self.list_view)
+        top_layout.addLayout(left_vbox, stretch=1)
+        # 右侧按钮列
+        top_layout.addLayout(vg_btn_layout)
 
-        # —— 下半部分：固定高度控件区 —— 
-        bottom = QWidget()
+        # —— 下部功能区（保留原有控件） ——
+        bottom = QWidget(self)
+        bottom_layout = QVBoxLayout(bottom)
+        # bottom = QWidget()
         # 按钮组
         vg_outer=QVBoxLayout(bottom)
         vg_outer.setContentsMargins(0, 0, 0, 0)
@@ -297,13 +331,15 @@ class QtVertexGroup(QWidget):
         vg_outer.addLayout(vg_clean)
         vg_outer.addLayout(vg_mirror)
         vg_outer.addStretch()
+        # —— 外部分割 ——
+        outer_splitter = QSplitter(Qt.Vertical, self)
+        outer_splitter.setChildrenCollapsible(False)
+        outer_splitter.addWidget(top_widget)
         outer_splitter.addWidget(bottom)
-
-        # 初始比例：上部 70%，下部 30%
         outer_splitter.setStretchFactor(0, 5)
         outer_splitter.setStretchFactor(1, 5)
 
-        # 把 splitter 放入主布局
+        # —— 主布局 ——
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(outer_splitter)
@@ -318,7 +354,7 @@ class QtVertexGroup(QWidget):
                 func()  # 原函数执行
                 # 然后注册 toast 显示（下一帧）
                 def show_toast():
-                    toast = ToastWindow(self.msg, parent=self.edit_widget)
+                    toast = ToastWindow(self.msg, parent=self)
                     toast.show_at_center_of()
                     return None  # 一次性定时器
                 bpy.app.timers.register(show_toast)
@@ -492,16 +528,50 @@ class QtVertexGroup(QWidget):
         self.btn_dict['vg_left'].update_button_state('vg_left')
         self.btn_dict['vg_right'].update_button_state('vg_right')
         self.btn_dict['vg_select'].update_button_state('vg_select')
-    def on_selection_changed(self):
-        indexes = self.list_view.selectedIndexes()
-        if not indexes:
+    # def on_selection_changed(self):
+        # indexes = self.list_view.selectedIndexes()
+        # if not indexes:
+        #     return
+        # obj = self.qt_window.obj
+        # if obj:
+        #     index = indexes[0].row()
+        #     obj.vertex_groups.active_index = index
+    
+    # def refresh_vertex_groups(self):
+    #     """同步 Blender 的顶点组到 Qt"""
+    #     obj = self.qt_window.obj
+    #     if obj and obj.type == 'MESH':
+    #         names = [VgItem(vg.name) for vg in obj.vertex_groups]
+    #     else:
+    #         names = []
+    #     self.model.beginResetModel()
+    #     self.model._items = names
+    #     self.model.endResetModel()
+    #     self.update_vertex_group_index()
+    # def update_vertex_group_index(self):
+    #     # if qt_window_widget is None:
+    #     #     global qt_window
+    #     # qt_window_widget=qt_window
+    #     obj = bpy.context.view_layer.objects.active
+    #     if obj is None:return None
+    #     if obj.type!='MESH':return None
+    #     # if self.qt_window is not None:
+    #     index=self.model.index((obj.vertex_groups.active_index))
+    #     self.list_view.setCurrentIndex(index)
+    #     return None
+    def on_selection_changed(self, selected, deselected):
+        if not selected.indexes():
             return
+        # 获取代理模型中选中的第一个索引
+        proxy_index = selected.indexes()[0]
+        # 转换到原始模型索引
+        source_index = self.proxy.mapToSource(proxy_index)
+        row = source_index.row()
         obj = self.qt_window.obj
         if obj:
-            index = indexes[0].row()
-            obj.vertex_groups.active_index = index
+            obj.vertex_groups.active_index = row
+
     def refresh_vertex_groups(self):
-        """同步 Blender 的顶点组到 Qt"""
         obj = self.qt_window.obj
         if obj and obj.type == 'MESH':
             names = [VgItem(vg.name) for vg in obj.vertex_groups]
@@ -511,17 +581,21 @@ class QtVertexGroup(QWidget):
         self.model._items = names
         self.model.endResetModel()
         self.update_vertex_group_index()
+
     def update_vertex_group_index(self):
-        # if qt_window_widget is None:
-        #     global qt_window
-        # qt_window_widget=qt_window
         obj = bpy.context.view_layer.objects.active
-        if obj is None:return None
-        if obj.type!='MESH':return None
-        # if self.qt_window is not None:
-        index=self.model.index((obj.vertex_groups.active_index))
-        self.list_view.setCurrentIndex(index)
-        return None
+        if not obj or obj.type != 'MESH':
+            return
+        active = obj.vertex_groups.active_index
+        # 转换为源模型索引后再映射到代理模型
+        src_idx = self.model.index(active)
+        if not src_idx.isValid():
+            self.list_view.clearSelection()
+            return
+        proxy_idx = self.proxy.mapFromSource(src_idx)
+        if proxy_idx.isValid():
+            self.list_view.setCurrentIndex(proxy_idx)    
+
     @undoable
     def handle_vg_mirror(self):
         bpy.ops.kourin.vg_mirror_weight()

@@ -55,7 +55,7 @@ class CheckWidget(QWidget):
             func()  # 原函数执行
             # 然后注册 toast 显示（下一帧）
             def show_toast():
-                toast = ToastWindow(self.msg, parent=self.edit_widget)
+                toast = ToastWindow(self.msg, parent=self)
                 toast.show_at_center_of()
                 return None  # 一次性定时器
             bpy.app.timers.register(show_toast)
