@@ -84,6 +84,8 @@ def set_obj_origin(obj, mx, bm=None):
 
 def obj_from_ptr(ptr):
     for obj in bpy.data.objects:
+        if obj is None:
+            continue
         if obj.as_pointer() == ptr:
             return obj
     return None

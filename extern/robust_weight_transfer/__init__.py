@@ -616,7 +616,7 @@ class KourinInstallDependencies(bpy.types.Operator):
         try:
             subprocess.check_call([python_exe, "-m", "ensurepip"])
             subprocess.check_call([
-                python_exe, "-m", "pip", "install", "--no-deps", 
+                python_exe, "-m", "pip", "install", 
                 *missing_deps, "--target", libs_path
             ])
             self.report({'INFO'}, "Installation successful! Please restart Blender.")
@@ -635,6 +635,7 @@ def Robust_register():
     if missing_deps:
         bpy.utils.register_class(KourinInstallDependencies)
     else:
+        bpy.utils.register_class(KourinInstallDependencies)
         bpy.utils.register_class(KourinSettingsPanel)
         bpy.utils.register_class(KourinVertexMappingPanel)
         bpy.utils.register_class(KourinLimitGroupsPanel)
@@ -657,6 +658,7 @@ def Robust_unregister():
     if missing_deps:
         bpy.utils.unregister_class(KourinInstallDependencies)
     else:
+        bpy.utils.register_class(KourinInstallDependencies)
         bpy.utils.unregister_class(KourinSettingsPanel)
         bpy.utils.unregister_class(KourinVertexMappingPanel)
         bpy.utils.unregister_class(KourinLimitGroupsPanel)

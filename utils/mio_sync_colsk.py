@@ -6,6 +6,8 @@ from ..ui.qt_global import GlobalProperty as GP
 
 def sync_shapekey_value():
     object = bpy.context.object
+    if object is None:
+        return
     prop_o = GP.get().obj_sync_col
     if is_sync_collection(object):
         key_blocks = object.data.shape_keys.key_blocks
@@ -21,6 +23,8 @@ def sync_shapekey_value():
 def sync_show_only_shape_key():
 
     object = bpy.context.object
+    if object is None:
+        return
     prop_o = GP.get().obj_sync_col
     if is_sync_collection(object):
         for item in [v for v in prop_o[object.as_pointer()].objects if has_shapekey(v) and v != object]:
@@ -31,6 +35,8 @@ def sync_show_only_shape_key():
 def sync_active_shape_key():
 
     object = bpy.context.object
+    if object is None:
+        return
     prop_o = GP.get().obj_sync_col
 
     if is_sync_collection(object):

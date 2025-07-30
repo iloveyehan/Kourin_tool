@@ -140,6 +140,8 @@ def on_shape_key_index_change(qt_w=None):
 
     # 确保 obj_ptr 和 obj 都是最新的
     obj = bpy.context.view_layer.objects.active
+    if obj is None:
+        return
     qt_window.obj_ptr = obj.as_pointer()
     qt_window.get_obj()
 
@@ -199,6 +201,8 @@ def on_active_change():
             gp._sk_search_map[qt_window.obj_ptr] = search_text
         #新地址
         obj=bpy.context.view_layer.objects.active
+        if obj is None:
+            return
         qt_window.obj_ptr=obj.as_pointer()
         qt_window.get_obj()
         # ptr_obj_new = obj.as_pointer()
@@ -246,6 +250,8 @@ def mirror_x_changed(*args):
     # print('qt_window',qt_window,bpy.context.view_layer.objects.active.name)
     if qt_window is not None:
         obj = bpy.context.view_layer.objects.active
+        if obj is None:
+            return
         qt_window.obj_ptr=obj.as_pointer()
         qt_window.get_obj()
         # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")
@@ -379,7 +385,9 @@ class MyQtWindow(QWidget):
     def __init__(self,hwnd,last_pos=None,ops=None):
         super().__init__()
         self.ops=ops
-        self.obj_ptr=bpy.context.view_layer.objects.active.as_pointer()
+        if bpy.context.view_layer.objects.active is not None:
+            self.obj_ptr=bpy.context.view_layer.objects.active.as_pointer()
+        self.obj_ptr=None
         self.obj=self.get_obj()
         self.s_ks=None
         self.b=0
@@ -473,7 +481,8 @@ class MyQtWindow(QWidget):
         bpy.app.timers.register(self._qt_poll_active_pose_bone)
         update_window_layer()
     def get_obj(self):
-        self.obj=obj_from_ptr(self.obj_ptr)
+        if self.obj_ptr is not None:
+            self.obj=obj_from_ptr(self.obj_ptr)
         
     def _qt_poll_active_pose_bone(self):
         """用 Qt 的定时器来检查 active_pose_bone"""
@@ -571,8 +580,11 @@ class ShowQtPanelOperator(bpy.types.Operator):
         
         #刷新视图,更新deps
         obj = bpy.context.view_layer.objects.active
-        qt_window.obj_ptr=obj.as_pointer()
-        qt_window.get_obj()
+        if obj is None:
+            qt_window.obj_ptr=None
+        else:
+            qt_window.obj_ptr=obj.as_pointer()
+            qt_window.get_obj()
         bpy.context.view_layer.objects.active=None
         bpy.context.view_layer.objects.active=obj
         return {'FINISHED'}

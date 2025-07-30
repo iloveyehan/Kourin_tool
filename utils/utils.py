@@ -414,6 +414,8 @@ def _get_windows_info_linux():
 
     
 def is_sync_collection(obj):
+    if obj is None:
+        return False
     from ..ui.qt_global import GlobalProperty as GP
     if obj.as_pointer() not in GP.get().obj_sync_col:
         return False
@@ -421,5 +423,6 @@ def is_sync_collection(obj):
 
 
 def has_shapekey(obj):
-
+    if obj is None:
+        return False
     return obj.type=='MESH' and obj.data.shape_keys is not None

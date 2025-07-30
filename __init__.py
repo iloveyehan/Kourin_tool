@@ -22,7 +22,7 @@ bl_info = {
     "name": "Kourin_tool",
     "author": "Cupcko[649730016@qq.com]",
     "blender": (3, 5, 0),
-    "version": (1, 1, 5),
+    "version": (1, 1, 7),
     "description": "This is a template for building addons",
     "warning": "",
     "doc_url": "[documentation url]",
@@ -56,8 +56,10 @@ class InstallPysideOperator(Operator):
             import pip
             # 安装Pyside6库
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyside6"])
-            # subprocess.check_call([sys.executable, "-m", "pip", "install", "PyQt6"])
-            bpy.ops.kourin.install_rwt_dependencies()
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "robust_laplacian"])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "libigl==2.5.1"])
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "scipy"])
+            # bpy.ops.kourin.install_rwt_dependencies()
             self.report({'INFO'}, "Pyside6 installed successfully.")
         except Exception as e:
             self.report({'ERROR'}, str(e))
@@ -140,7 +142,7 @@ if is_pyside6_installed():
     from .operators.shapkey import reg_vrc_sk_ops,unreg_vrc_sk_ops
     from .extern.robust_weight_transfer import Robust_register,Robust_unregister
     def reg_all():
-
+        Robust_register()
         reg_vrc_vg_ops()
         reg_vrc_sk_ops()
         reg_vrc_bone_ops()
@@ -155,7 +157,7 @@ if is_pyside6_installed():
         reg_sculpt_menu()
         reg_edit_menu()
         reg_weight_paint_menu()
-        Robust_register()
+        
         main_button_register()
         add_properties(_addon_properties)
     def unreg_all():
@@ -184,7 +186,7 @@ else:
 from .preference.AddonPreferences import reg_pref,unreg_pref
 def register():
     reg_pref()#必须注册插件设置面板
-    bpy.utils.register_class(InstallPysideOperator)
+    
     bpy.utils.register_class(KourinCheckUpdateOperator)
 
     
@@ -207,7 +209,7 @@ def register():
 
     # add_properties(_addon_properties)
 
-
+    bpy.utils.register_class(InstallPysideOperator)
     # print("{} addon is installed.".format(bl_info["name"]))
     global keymaps
     # print([keys[v] for v in keys])

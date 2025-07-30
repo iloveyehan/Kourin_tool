@@ -645,7 +645,8 @@ class Qt_shapekey(QWidget):
         # 1. 确保拿到当前对象
         self.qt_window.get_obj()
         obj_ptr = self.qt_window.obj_ptr
-
+        if self.qt_window.obj is None:
+            return
         # 2. 获取最新的 name 列表
         if not has_shapekey(self.qt_window.obj):
             new_names = []
@@ -715,6 +716,8 @@ class Qt_shapekey(QWidget):
         # 获取当前选中的文本
         selected_text = self.sync_col_combox.currentText()
         self.qt_window.get_obj()
+        if self.qt_window.obj is None:
+            return
         if selected_text =='':
             GP.get().obj_sync_col[self.qt_window.obj.as_pointer()]=None
         else:

@@ -55,7 +55,6 @@ def is_pyside6_installed():
     global print_1
     try:
         import PySide6
-        from ..extern import robust_weight_transfer
         import robust_laplacian
         if not print_1:
             print('[DEBUG]','pyside6已安装')
