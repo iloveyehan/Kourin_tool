@@ -274,7 +274,7 @@ class QtVertexGroup(QWidget):
 
         # —— 下部功能区（保留原有控件） ——
         bottom = QWidget(self)
-        bottom_layout = QVBoxLayout(bottom)
+        # bottom_layout = QVBoxLayout(bottom)
         # bottom = QWidget()
         # 按钮组
         vg_outer=QVBoxLayout(bottom)
