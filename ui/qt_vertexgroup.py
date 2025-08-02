@@ -215,7 +215,7 @@ class QtVertexGroup(QWidget):
         from .qt_shapekey import ListView
         # —— 搜索框 ——
         self.search_edit = QLineEdit(self)
-        self.search_edit.setPlaceholderText("搜索顶点组…")
+        self.search_edit.setPlaceholderText(self.tr("搜索顶点组…"))
         self.search_edit.setClearButtonEnabled(True)
 
         # —— 原始模型和代理模型 ——
@@ -242,13 +242,13 @@ class QtVertexGroup(QWidget):
         vg_btn_layout.setContentsMargins(0, 0, 0, 0)
         vg_btn_layout.setSpacing(0)
         for icon, name,tooltip in [
-            ('add.svg','add_vg','新建'),
-            ('remove.svg','rm_vg','移除'),
-            ('vg_asign.png','vg_asign','把选中的顶点新建成顶点组'),
-            ('vg_select_v.png','vg_select_v','选中当前组的顶点'),
-            ('vg_rm_select.png','vg_rm_select','把选中的顶点移出顶点组'),
-            ('vg_trans_modi.png','vg_trans_modi','添加数据传递修改器'),
-            ('modi_shrink.png','vg_shrink_modi','添加缩裹修改器'),
+            ('add.svg','add_vg',self.tr('新建')),
+            ('remove.svg','rm_vg',self.tr('移除')),
+            ('vg_asign.png','vg_asign',self.tr('把选中的顶点新建成顶点组')),
+            ('vg_select_v.png','vg_select_v',self.tr('选中当前组的顶点')),
+            ('vg_rm_select.png','vg_rm_select',self.tr('把选中的顶点移出顶点组')),
+            ('vg_trans_modi.png','vg_trans_modi',self.tr('添加数据传递修改器')),
+            ('modi_shrink.png','vg_shrink_modi',self.tr('添加缩裹修改器')),
         ]:
             btn = Button('', icon)
             btn.setProperty('bt_name', name)
@@ -284,13 +284,13 @@ class QtVertexGroup(QWidget):
         vg_clean.setContentsMargins(0, 0, 0, 0)
         vg_clean.setSpacing(0)
         for  name,bt_name,tooltip in [
-            ['清','clean_zero','清理顶点组内的非法权重或0'],
-            ['未','unused','删除没使用的顶点组\n(没形变或被修改器使用)'],
-            ['零','rm_all_unused','删除0权重顶点组,所有物体'],
-            ['rigify','vg_rigify','添加DEF-前缀'],
-            ['普通','vg_normal','删除DEF-前缀'],
-            ['剪切','vg_cut','复制权重并删除源'],
-            ['粘贴','vg_paste','粘贴权重'],
+            [self.tr('清'),'clean_zero',self.tr('清理顶点组内的非法权重或0')],
+            [self.tr('未'),'unused',self.tr('删除没使用的顶点组\n(没形变或被修改器使用)')],
+            [self.tr('零'),'rm_all_unused',self.tr('删除0权重顶点组,所有物体')],
+            [self.tr('rigify'),'vg_rigify',self.tr('添加DEF-前缀')],
+            [self.tr('普通'),'vg_normal',self.tr('删除DEF-前缀')],
+            [self.tr('剪切'),'vg_cut',self.tr('复制权重并删除源')],
+            [self.tr('粘贴'),'vg_paste',self.tr('粘贴权重')],
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -303,12 +303,12 @@ class QtVertexGroup(QWidget):
         vg_mirror.setSpacing(0)
         self.btn_dict={}
         for  name,bt_name,tooltip in [
-            ['←','vg_left','把顶点组顶点组复制到左边'],
-            ['→','vg_right','把顶点组顶点组复制到右边'],
-            [' | ','vg_middle','中间的顶点组,配合左右使用'],
-            ['镜像','vg_mirror','把顶点组顶点组复制到箭头方向'],
-            ['多','vg_mul','把一半的顶点组镜像到箭头方向'],
-            ['选','vg_select','只镜像选中的顶点组\n姿态模式下选中骨骼'],
+            ['←','vg_left',self.tr('把顶点组顶点组复制到左边')],
+            ['→','vg_right',self.tr('把顶点组顶点组复制到右边')],
+            [' | ','vg_middle',self.tr('中间的顶点组,配合左右使用')],
+            [self.tr('镜像'),'vg_mirror',self.tr('把顶点组顶点组复制到箭头方向')],
+            [self.tr('多'),'vg_mul',self.tr('把一半的顶点组镜像到箭头方向')],
+            [self.tr('选'),'vg_select',self.tr('只镜像选中的顶点组\n姿态模式下选中骨骼')],
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -345,7 +345,7 @@ class QtVertexGroup(QWidget):
         main_layout.addWidget(outer_splitter)
         self.setLayout(main_layout)
     def button_handler(self):
-        self.msg='操作完成'
+        self.msg=self.tr('操作完成')
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}", None)
         if func:

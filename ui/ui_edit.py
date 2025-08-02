@@ -86,7 +86,7 @@ class EditQuickWigdet(QWidget):
         o=settings.source_object
         if o is not None and o.type=='MESH':
             if o.name==bpy.context.active_object.name:
-                name='权重来源不能是自己'
+                name=self.tr('权重来源不能是自己')
             else:
                 name=o.name
         else:
@@ -105,8 +105,8 @@ class EditQuickWigdet(QWidget):
         # 添加标签
         for icon,bt_name,check,tooltip in [
             # ('hide_off.svg','faceset_from_visible',False,'从视图可见顶点创建面组'),
-            ('editmode_hlt.svg','faceset_from_edit',False,'从选中的顶点创建面组'),
-            ('armature_data.svg','edit_to_paint_with_a',False,'选中骨架,并进入权重绘制'),
+            ('editmode_hlt.svg','faceset_from_edit',False,self.tr('从选中的顶点创建面组')),
+            ('armature_data.svg','edit_to_paint_with_a',False,self.tr('选中骨架,并进入权重绘制')),
         ]:
             btn = Button('',icon,(40,40))
 
@@ -122,9 +122,9 @@ class EditQuickWigdet(QWidget):
         h_1.addStretch()
         self.checkable_buttons = {}
         for name,bt_name,check,tooltip in [
-            ('组','vg_asign',False,'创建顶点组'),
-            ('传权重,修改器','weight_by_modi',False,'用数据传递修改器'),
-            ('传权重,算法','weight_by_algorithm',False,'用算法传权重'),
+            (self.tr('组'),'vg_asign',False,self.tr('创建顶点组')),
+            (self.tr('传权重,修改器'),'weight_by_modi',False,self.tr('用数据传递修改器')),
+            (self.tr('传权重,算法'),'weight_by_algorithm',False,self.tr('用算法传权重')),
             
         ]:
             btn = Button(name)
@@ -155,7 +155,7 @@ class EditQuickWigdet(QWidget):
             btn.blockSignals(False)
             # print(bt_name,state)
     def button_handler(self):
-        self.msg='操作完成'
+        self.msg=self.tr('操作完成')
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
 
@@ -170,6 +170,7 @@ class EditQuickWigdet(QWidget):
             return None  # 一次性定时器
 
         bpy.app.timers.register(wrapped_func)
+        
     def button_check_handler(self,checked):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
@@ -192,7 +193,7 @@ class EditQuickWigdet(QWidget):
         #     self.msg='有多个可用的骨骼修改器,先禁用多余的'
         #     return False
         if not comfirm_one_arm(bpy.context.active_object):
-            self.msg='有多个可用的骨骼修改器,先禁用多余的'
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
         for m in bpy.context.active_object.modifiers:
             if m.type=='ARMATURE' and m.show_viewport and m.object is not None:
@@ -206,7 +207,7 @@ class EditQuickWigdet(QWidget):
     def handle_weight_by_modi(self):
         settings = bpy.context.scene.kourin_weight_transfer_settings
         if not settings.source_object:
-            self.msg='先设置权重来源'
+            self.msg=self.tr('先设置权重来源')
             print(self.msg)
             return
         obj=bpy.context.object
@@ -225,7 +226,7 @@ class EditQuickWigdet(QWidget):
     def handle_weight_by_algorithm(self):
         settings = bpy.context.scene.kourin_weight_transfer_settings
         if not settings.source_object:
-            self.msg='先设置权重来源'
+            self.msg=self.tr('先设置权重来源')
             print(self.msg)
             return
         obj=bpy.context.object
@@ -330,6 +331,7 @@ class EditMenuWidget(QWidget):
 class QtEditMenuOperator(BaseQtOperator,bpy.types.Operator):
     bl_idname = "qt.edit_menu"
     bl_label = "编辑快捷菜单"
+    auto_close=False
     @classmethod
     def poll(cls, context):
         if bpy.context.mode == 'EDIT_MESH':#4.5

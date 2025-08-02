@@ -20,6 +20,8 @@ from PySide6.QtGui import QPixmap, QIcon
 from PySide6.QtCore import QByteArray
 import os
 
+from ..translations import get_blender_language
+
 from .qt_global import on_blendfile_loaded
 
 from ..utils.object import obj_from_ptr
@@ -290,7 +292,7 @@ class MirrorWarningWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        self.label = QLabel(message, self)
+        self.label = QLabel(self.tr(message), self)
         self.label.setStyleSheet("""
             QLabel {
                 color: white;
@@ -434,10 +436,10 @@ class MyQtWindow(QWidget):
         self.qt_check=CheckWidget(self)
         self.qt_preprocessewigdet=PreprocesseWigdet(self)
         toolbox = ToolBox()
-        toolbox.addWidget('预处理',self.qt_preprocessewigdet)
-        toolbox.addWidget('顶点组',self.qt_vertexgroup)
-        toolbox.addWidget('形态键',self.qt_shapekey)
-        toolbox.addWidget('检查',self.qt_check)
+        toolbox.addWidget(self.tr('预处理'),self.qt_preprocessewigdet)
+        toolbox.addWidget(self.tr('顶点组'),self.qt_vertexgroup)
+        toolbox.addWidget(self.tr('形态键'),self.qt_shapekey)
+        toolbox.addWidget(self.tr('检查'),self.qt_check)
 
         grip = QSizeGrip(self)
         grip.setStyleSheet("width: 16px; height: 16px;")
@@ -547,7 +549,7 @@ class ShowQtPanelOperator(bpy.types.Operator):
             qt_app = QApplication(sys.argv)
         else:
             qt_app = QApplication.instance()
-
+        self.install_translator()
 
         # 显示主窗口
         if not qt_window or not qt_window.isVisible():
@@ -588,7 +590,23 @@ class ShowQtPanelOperator(bpy.types.Operator):
         bpy.context.view_layer.objects.active=None
         bpy.context.view_layer.objects.active=obj
         return {'FINISHED'}
+    def install_translator(self):
+        translator = QTranslator()
+        self._qt_translator = translator
+        lang = get_blender_language()
+        
+        qm_path = Path(__file__).parent.parent / "translations" / f"{lang}.qm"
+        print('[DEBUG]',lang)
+        print('[DEBUG] qm_path', qm_path)
 
+        if qm_path.exists():
+            t=translator.load(str(qm_path))
+            QApplication.instance().installTranslator(translator)
+            print(f"[Qt] Loaded language: {lang}",t)
+        else:
+            print(f"[Qt] Translation file not found: {qm_path}")
+        print("Translator isEmpty?", translator.isEmpty())
+        print("File path:", translator.filePath())
 
 def menu_func(self, context):
     self.layout.operator(ShowQtPanelOperator.bl_idname, text="VRC", icon='WINDOW')

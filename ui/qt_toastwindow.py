@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, QTimer, QTranslator, QSize, QSettings,QEvent,QPoi
 class ToastWindow(QWidget):
     def __init__(self, message="操作已完成", duration=700, parent=None,):
         super().__init__(parent)
+        self.parent_wg=parent
         self.setWindowFlags(
             Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.X11BypassWindowManagerHint
         )
@@ -30,7 +31,15 @@ class ToastWindow(QWidget):
         self.adjustSize()
 
         # 自动关闭
-        QTimer.singleShot(duration, self.close)
+        # QTimer.singleShot(duration, self.close)
+        QTimer.singleShot(duration, self.close_self_and_ops)
+    def close_self_and_ops(self):
+        self.close()
+        if hasattr(self.parent_wg,'ops') and self.parent_wg.ops is not None:
+            if hasattr(self.parent_wg.ops,'auto_close'):
+                self.parent_wg.ops.auto_close=True
+                
+                
 
     def show_at_center_of(self):
         x,y=self.get_mouse_pos()

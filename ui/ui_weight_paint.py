@@ -42,9 +42,9 @@ class WeightMirror(BaseWidget):
         h_2=QHBoxLayout()
         for name,bt_name,check,tooltip in [
             # ('hide_off.svg','faceset_from_visible',False,'从视图可见顶点创建面组'),
-            ('←','sym_to_left',False,'对称到左边'),
-            ('镜像','mirror',False,'镜像权重'),
-            ('→','sym_to_right',False,'对称到右边'),
+            ('←','sym_to_left',False,self.tr('对称到左边')),
+            (self.tr('镜像'),'mirror',False,self.tr('镜像权重')),
+            ('→','sym_to_right',False,self.tr('对称到右边')),
         ]:
             btn = Button(name)
 
@@ -64,8 +64,8 @@ class WeightMirror(BaseWidget):
             
 
         for name,bt_name,check,tooltip in [
-            ('剪切','weight_cut',False,'剪切权重'),
-            ('粘贴','weight_paste',False,'粘贴权重'),
+            (self.tr('剪切'),'weight_cut',False,self.tr('剪切权重')),
+            (self.tr('粘贴'),'weight_paste',False,self.tr('粘贴权重')),
         ]:
             btn = Button(name)
 
@@ -85,7 +85,7 @@ class WeightMirror(BaseWidget):
         layout.addLayout(h_2)
         self.setLayout(layout)
     def button_handler(self):
-        self.msg='操作完成'
+        self.msg=self.tr('操作完成')
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
         def wrapped_func():
@@ -122,7 +122,7 @@ class WeightMirror(BaseWidget):
     @undoable
     def handle_sym_to_left(self):
         if not comfirm_one_arm(bpy.context.active_object):
-            self.msg='有多个可用的骨骼修改器,先禁用多余的'
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
         temp=self.get_mirror_prop()
 
@@ -139,7 +139,7 @@ class WeightMirror(BaseWidget):
     @undoable
     def handle_sym_to_right(self):
         if not comfirm_one_arm(bpy.context.active_object):
-            self.msg='有多个可用的骨骼修改器,先禁用多余的'
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
         temp=self.get_mirror_prop()
 
@@ -157,7 +157,7 @@ class WeightMirror(BaseWidget):
     @undoable
     def handle_mirror(self):
         if not comfirm_one_arm(bpy.context.active_object):
-            self.msg='有多个可用的骨骼修改器,先禁用多余的'
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
         temp=self.get_mirror_prop()
 
@@ -359,6 +359,7 @@ class WeightPaintMenuWidget(QWidget):
 class QtEditMenuOperator(BaseQtOperator,bpy.types.Operator):
     bl_idname = "qt.weight_paint_menu"
     bl_label = "编辑快捷菜单"
+    auto_close=False
     @classmethod
     def poll(cls, context):
         o=context.active_object

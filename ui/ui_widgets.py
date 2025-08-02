@@ -108,6 +108,7 @@ class BaseWidget(QWidget):
                 return None  # 一次性定时器
             bpy.app.timers.register(show_toast)
             return None  # 一次性定时器
+        bpy.app.timers.register(wrapped_func)
     def button_check_handler(self,checked):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")

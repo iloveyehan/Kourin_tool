@@ -1,6 +1,7 @@
 import ctypes
 from ctypes import wintypes
 from functools import partial
+import os
 from pathlib import Path
 import platform
 import sys
@@ -8,9 +9,11 @@ import weakref
 from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout, QLabel,QHBoxLayout
 
 from PySide6.QtGui import QWindow, QMouseEvent,QRegion
-from PySide6.QtCore import Qt, QTimer,QPoint,Signal,QRect,QEvent
+from PySide6.QtCore import Qt, QTimer,QPoint,Signal,QRect,QTranslator
 import bpy
 import numpy as np
+
+from ..translations import get_blender_language
 
 from ..ui.ui_widgets import Button
 from ..operators.color_selector import get_blender_hwnd
@@ -43,6 +46,22 @@ class BaseQtOperator():
             self.__class__._qt_app_ref = weakref.ref(app)
         # else:
         #     debug_print( "使用现有QApplication实例")
+        translator = QTranslator()
+        BaseQtOperator._qt_translator = translator
+        lang = get_blender_language()
+        
+        qm_path = Path(__file__).parent.parent / "translations" / f"{lang}.qm"
+        print('[DEBUG]',lang)
+        print('[DEBUG] qm_path', qm_path)
+
+        if qm_path.exists():
+            t=translator.load(str(qm_path))
+            QApplication.instance().installTranslator(translator)
+            print(f"[Qt] Loaded language: {lang}",t)
+        else:
+            print(f"[Qt] Translation file not found: {qm_path}")
+        print("Translator isEmpty?", translator.isEmpty())
+        print("File path:", translator.filePath())
         return QApplication.instance()
 
     def execute(self, context):
@@ -53,9 +72,13 @@ class BaseQtOperator():
         ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
         return pt.x, pt.y
     def modal(self, context, event):
+        if hasattr(self,'auto_close'):
+            if self.auto_close:
+                self._cleanup()
+                return {'FINISHED'}
         if event.type == 'SPACE' and event.value == 'PRESS':
             # print('123')
-            if self._qt_window_ref and self._qt_window_ref():
+            if self._qt_window_ref:
                 window = self._qt_window_ref()
                 window.show()
                 # [!] Windows专用激活代码
@@ -85,17 +108,18 @@ class BaseQtOperator():
     # window.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
     def _cleanup(self):
         """安全清理资源"""
-        if self._qt_window_ref and self._qt_window_ref():
+        if self._qt_window_ref :
             window = self._qt_window_ref()
             window.close()
             window.deleteLater()
-        if self._qt_app_ref and self._qt_app_ref():
+        if self._qt_app_ref:
             app = self._qt_app_ref()
             app.quit()
 
     def invoke(self, context, event):
         mouse_pose=(event.mouse_x,event.mouse_y)
-        
+        if hasattr(self,'auto_close'):
+            self.auto_close=False
         # [!] 统一初始化入口
         self._ensure_qt_app()
         
@@ -106,9 +130,17 @@ class BaseQtOperator():
 
         try:
             # [!] 清理旧窗口
-            if hasattr(bpy, '_embedded_qt'):
-                bpy._embedded_qt.close()
+            # if hasattr(bpy, '_embedded_qt'):
+            #     bpy._embedded_qt.close()
+            #     del bpy._embedded_qt
+            # —— 安全销毁旧窗口 ——
+            old = getattr(bpy, "_embedded_qt", None)
+            print('old',old)
+            if old is not None:
+                old.deleteLater()
                 del bpy._embedded_qt
+                # 处理一下事件队列，确保 C++ 对象真的被销毁
+                QApplication.processEvents()
             bpy._embedded_qt = self.set_embedded_qt(context,parent_hwnd,init_pos=mouse_pose)
 
             self.__class__._qt_window_ref = weakref.ref(bpy._embedded_qt)

@@ -221,9 +221,15 @@ class Sculptwheel(QWidget):
         func = getattr(self, f"handle_{name}", None)
         if func:
             def wrapped_func():
-                func()   
+                func()
+                def set_close():
+                    try:
+                        self.ops._press_brush=True
+                    except:
+                        print('[DEBUG]:Sculpt窗口已经关闭(通过射线)')
                 try:
-                    self.ops._press_brush=True 
+                    bpy.app.timers.register(set_close, first_interval=0.05)
+
                 except:
                     print(f'[DEBUG] raycast:brush {name}')
             bpy.app.timers.register(wrapped_func)
@@ -233,7 +239,7 @@ class Sculptwheel(QWidget):
     @undoable
     def handle_mesh_sculpt_inflate(self):
         bpy.ops.brush.asset_activate(asset_library_type='ESSENTIALS', asset_library_identifier="", relative_asset_identifier="brushes\\essentials_brushes-mesh_sculpt.blend\\Brush\\Inflate/Deflate")
-
+    
     @undoable
     def handle_mesh_sculpt_grab(self):
         bpy.ops.brush.asset_activate(asset_library_type='ESSENTIALS', asset_library_identifier="", relative_asset_identifier="brushes\\essentials_brushes-mesh_sculpt.blend\\Brush\\Grab")
@@ -398,8 +404,8 @@ class SculptQuickWigdet(QWidget):
         layout.addStretch()
         # 添加标签
         for icon,bt_name,check,tooltip in [
-            ('hide_off.svg','faceset_from_visible',False,'从视图可见顶点创建面组'),
-            ('editmode_hlt.svg','faceset_from_edit',False,'从选中的顶点创建面组'),
+            ('hide_off.svg','faceset_from_visible',False,self.tr('从视图可见顶点创建面组')),
+            ('editmode_hlt.svg','faceset_from_edit',False,self.tr('从选中的顶点创建面组')),
         ]:
             btn = Button('',icon,(40,40))
 
@@ -415,10 +421,10 @@ class SculptQuickWigdet(QWidget):
         h_1.addStretch()
         self.checkable_buttons = {}
         for name,bt_name,check,tooltip in [
-            ('拓扑','use_automasking_topology',True,'根据拓扑自动遮罩'),
-            ('面组','use_automasking_face_sets',True,'根据面组自动遮罩'),
-            ('面组边界','use_automasking_boundary_face_sets',True,'面组边界自动遮罩'),
-            ('网格边界','use_automasking_boundary_edges',True,'网格边界自动遮罩'),
+            (self.tr('拓扑'),'use_automasking_topology',True,self.tr('根据拓扑自动遮罩')),
+            (self.tr('面组'),'use_automasking_face_sets',True,self.tr('根据面组自动遮罩')),
+            (self.tr('面组边界'),'use_automasking_boundary_face_sets',True,self.tr('面组边界自动遮罩')),
+            (self.tr('网格边界'),'use_automasking_boundary_edges',True,self.tr('网格边界自动遮罩')),
             
         ]:
             btn = Button(name)
@@ -451,7 +457,12 @@ class SculptQuickWigdet(QWidget):
     def button_handler(self):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
-        bpy.app.timers.register(func)
+        def wrapped_func():
+            func()  # 原函数执行
+            def set_close():
+                self.sculpt_widget.ops.auto_close=True
+            bpy.app.timers.register(set_close, first_interval=0.05)
+        bpy.app.timers.register(wrapped_func)
     def button_check_handler(self,checked):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
@@ -580,6 +591,7 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
     _qt_app_ref = None
     _qt_window_ref = None
     _press_brush=False
+    auto_close=False
     @classmethod
     def poll(cls, context):
         if bpy.context.mode == 'SCULPT':#4.5
@@ -589,7 +601,7 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
     def execute(self, context):
         return {'RUNNING_MODAL'}
     def modal(self, context, event):
-        if self._press_brush:#点击笔刷后关闭菜单
+        if self._press_brush or self.auto_close:#点击笔刷后关闭菜单
             self._cleanup()
             return {'FINISHED'}
         if event.type == 'SPACE' and event.value == 'PRESS':
@@ -604,10 +616,14 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
                 window.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
             # 把 Blender 坐标先给 Sculptwheel，内部会做转换并重绘
-            sculptwheel = self._qt_window_ref().Sculptwheel
-            sculptwheel.set_global_mouse(*self.get_mouse_pos())
-            sculptwheel.keyReleaseOps()
-            self._cleanup()
+            try:
+                sculptwheel = self._qt_window_ref().Sculptwheel
+                sculptwheel.set_global_mouse(*self.get_mouse_pos())
+            
+                sculptwheel.keyReleaseOps()
+                self._cleanup()
+            except:
+                print('[DEBUG]:Sculpt窗口已经关闭')
             return {'FINISHED'}
 
         if event.type in {'ESC', 'RIGHTMOUSE'}:
@@ -619,6 +635,7 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
 
     def invoke(self, context, event):
         self._press_brush=False
+        self.auto_close=False
         mouse_pose=(event.mouse_x,event.mouse_y)
         
         # [!] 统一初始化入口
@@ -631,10 +648,17 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
 
         try:
             # [!] 清理旧窗口
-            if hasattr(bpy, '_embedded_qt'):
-                bpy._embedded_qt.close()
-                del bpy._embedded_qt
+            # if hasattr(bpy, '_embedded_qt'):
+            #     bpy._embedded_qt.close()
+            #     del bpy._embedded_qt
 
+            old = getattr(bpy, "_embedded_qt", None)
+            if old is not None:
+                old.deleteLater()
+                del bpy._embedded_qt
+                # 处理一下事件队列，确保 C++ 对象真的被销毁
+                QApplication.processEvents()
+            print('[DEBUG]:invoke',old)
             bpy._embedded_qt = SculptMenuWidget(context,parent_hwnd,init_pos=mouse_pose,ops=self)
 
             self.__class__._qt_window_ref = weakref.ref(bpy._embedded_qt)

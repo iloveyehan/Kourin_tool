@@ -40,19 +40,19 @@ class MenuButton(QPushButton):
             self.setFixedSize(*self.icon_size)
 
         self.icon_dict={
-            '混合后的新形态':['NewShapeFromMix','add.svg'],
-            '镜像形态键':['Mirror','arrow_leftright.svg'],
-            '镜像形态键(拓扑)':['MirrorTopo',''],
-            '合并为形变':['JoinAs',''],
-            '传递形态键':['Trans',''],
-            '删除全部':['DelteAll','panel_close.svg'],
-            '应用全部':['ApplyAll',''],
-            '全部锁定':['Lock','locked.svg'],
-            '全部解锁':['Unlock','unlocked.svg'],
-            '移至顶部':['MoveToTop','tria_up_bar.svg'],
-            '移至底部':['MoveToBottom','tria_down_bar.svg'],
-            '应用到basis':['ApplyToBasis',''],
-            '移除未使用':['RemoveUnuse',''],
+            self.tr('混合后的新形态'):['NewShapeFromMix','add.svg'],
+            self.tr('镜像形态键'):['Mirror','arrow_leftright.svg'],
+            self.tr('镜像形态键(拓扑)'):['MirrorTopo',''],
+            self.tr('合并为形变'):['JoinAs',''],
+            self.tr('传递形态键'):['Trans',''],
+            self.tr('删除全部'):['DelteAll','panel_close.svg'],
+            self.tr('应用全部'):['ApplyAll',''],
+            self.tr('全部锁定'):['Lock','locked.svg'],
+            self.tr('全部解锁'):['Unlock','unlocked.svg'],
+            self.tr('移至顶部'):['MoveToTop','tria_up_bar.svg'],
+            self.tr('移至底部'):['MoveToBottom','tria_down_bar.svg'],
+            self.tr('应用到basis'):['ApplyToBasis',''],
+            self.tr('移除未使用'):['RemoveUnuse',''],
         }
         self.createContextMenu()  
  
@@ -484,7 +484,7 @@ class Qt_shapekey(QWidget):
 
         # —— 同步集合区 —— 
         sync_col_layout = QHBoxLayout()
-        self.sync_col_label = QLabel('同步集合')
+        self.sync_col_label = QLabel(self.tr('同步集合'))
         self.show_only_sk = Button('', 'solo_off.svg')
         self.show_only_sk.setProperty('bt_name', 'show_only_sk')
         self.show_only_sk.setCheckable(True)
@@ -525,7 +525,7 @@ class Qt_shapekey(QWidget):
         # 过滤代理
         # —— 搜索框 —— 
         self.search_edit = QLineEdit(self)
-        self.search_edit.setPlaceholderText("🔍 搜索形态键")
+        self.search_edit.setPlaceholderText(self.tr("🔍 搜索形态键"))
         
         self.proxy = QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)

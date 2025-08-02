@@ -10,7 +10,7 @@ class PreprocesseWigdet(QWidget):
     def __init__(self,parent):
         from .ui_widgets import Button
         super().__init__()
-        self.ops=parent.ops
+        # self.ops=parent.ops
         # 创建布局
         self.qt_window=parent
 
@@ -27,11 +27,11 @@ class PreprocesseWigdet(QWidget):
         layout.addLayout(h_2)
         # 添加标签
         for name,bt_name,check,tooltip in [
-            ('材质','set_viewport_display_random',False,'把材质设置为随机\n方便查看穿模情况'),
-            ('清理','clean_skeleton',False,'选中骨架\n移除所有没有权重的骨骼'),
-            ('棍型','make_skeleton',False,'设置棍型骨架\n其他衣服骨骼设置为八面锥'),
-            ('名称','show_bonename',True,'骨骼名称显示切换'),
-            ('前面','in_front',False,'在前面'),
+            (self.tr('材质'),'set_viewport_display_random',False,self.tr('把材质设置为随机\n方便查看穿模情况')),
+            (self.tr('清理'),'clean_skeleton',False,self.tr('选中骨架\n移除所有没有权重的骨骼')),
+            (self.tr('棍型'),'make_skeleton',False,self.tr('设置棍型骨架\n其他衣服骨骼设置为八面锥')),
+            (self.tr('名称'),'show_bonename',True,self.tr('骨骼名称显示切换')),
+            (self.tr('前面'),'in_front',False,self.tr('在前面')),
         ]:
             btn = Button(name)
             btn.setProperty('bt_name', bt_name)
@@ -46,10 +46,10 @@ class PreprocesseWigdet(QWidget):
 
 
         for name,bt_name,check,tooltip in [
-            ('应用','pose_to_reset',False,'把当前POSE设置为默认POSE\n注意:需要选中骨骼'),
-            ('合骨','combine_selected_bone_weights',False,'多选骨骼，合并权重到激活骨骼\n删除其他骨骼（支持镜像处理）'),
-            ('改名','rename_armature',False,'把骨骼命名统一\n以激活骨架为准\n注意:可能有错误,需要检查'),
-            ('合并','merge_armature',False,'合并骨架\n注意:以激活骨架为主'),
+            (self.tr('应用'),'pose_to_reset',False,self.tr('把当前POSE设置为默认POSE\n注意:需要选中骨骼')),
+            (self.tr('合骨'),'combine_selected_bone_weights',False,self.tr('多选骨骼，合并权重到激活骨骼\n删除其他骨骼（支持镜像处理）')),
+            (self.tr('改名'),'rename_armature',False,self.tr('把骨骼命名统一\n以激活骨架为准\n注意:可能有错误,需要检查')),
+            (self.tr('合并'),'merge_armature',False,self.tr('合并骨架\n注意:以激活骨架为主')),
             # ('名称','show_bonename',True,'骨骼名称显示切换'),
         ]:
             btn = Button(name)
@@ -68,7 +68,7 @@ class PreprocesseWigdet(QWidget):
         # 设置布局到中央部件
         self.setLayout(layout)
     def button_handler(self):
-        self.msg='操作完成'
+        self.msg=self.tr('操作完成')
         name = self.sender().property('bt_name')
         # print(f'dianjiele {name}')
         # 动态找到处理函数或从映射里取
@@ -94,7 +94,7 @@ class PreprocesseWigdet(QWidget):
     def handle_clean_skeleton(self):
         obj = bpy.context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.msg="请选择一个骨骼对象"
+            self.msg=self.tr("请选择一个骨骼对象")
             return
         bpy.ops.kourin.delete_unused_bones()
         return None

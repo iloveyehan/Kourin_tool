@@ -22,17 +22,17 @@ class CheckWidget(QWidget):
         btn_layout.setSpacing(5)
 
         # 检查按钮
-        check_btn = Button('检查')
+        check_btn = Button(self.tr('检查'))
         check_btn.setProperty('bt_name', 'check_scene')
         check_btn.clicked.connect(self.button_handler)
-        check_btn.setToolTip('检查场景中的命名、UV、集合等')
+        check_btn.setToolTip(self.tr('检查场景中的命名、UV、集合等'))
         btn_layout.addWidget(check_btn)
 
         # 清理按钮
-        clean_btn = Button('清理')
+        clean_btn = Button(self.tr('清理'))
         clean_btn.setProperty('bt_name', 'clean_scene')
         clean_btn.clicked.connect(self.button_handler)
-        clean_btn.setToolTip('清理不在当前视图层或未链接到集合的Mesh和未使用的材质（包括fake user）')
+        clean_btn.setToolTip(self.tr('清理不在当前视图层或未链接到集合的Mesh和未使用的材质（包括fake user）'))
         btn_layout.addWidget(clean_btn)
 
         btn_layout.addStretch()
@@ -41,13 +41,13 @@ class CheckWidget(QWidget):
         # 结果显示区域
         self.result_view = QTextEdit()
         self.result_view.setReadOnly(True)
-        self.result_view.setPlaceholderText('操作结果将在此显示...')
+        self.result_view.setPlaceholderText(self.tr('操作结果将在此显示...'))
         layout.addWidget(self.result_view)
 
         self.setLayout(layout)
 
     def button_handler(self):
-        self.msg='操作完成'
+        self.msg=self.tr('操作完成')
         name = self.sender().property('bt_name')
         func = getattr(self, f'handle_{name}')
         # 定时注册以确保在主线程执行
@@ -68,16 +68,16 @@ class CheckWidget(QWidget):
         results = []
         # 检查材质命名后缀是否重复（.001, .002 等）
         dup_mat = [m.name for m in bpy.data.materials if re.search(r"\.\d{3,}$", m.name)]
-        results.append(f"重复后缀的材质: {', '.join(dup_mat) or '无'}")
+        results.append(self.tr(f"重复后缀的材质: ")+f"{', '.join(dup_mat) or self.tr('无')}")
 
         # 检查Mesh命名后缀重复
         dup_mesh = [o.name for o in bpy.data.objects if o.type=='MESH' and re.search(r"\.\d{3,}$", o.name)]
-        results.append(f"重复后缀的Mesh: {', '.join(dup_mesh) or '无'}")
+        results.append(self.tr("重复后缀的Mesh: ")+f"{', '.join(dup_mesh) or self.tr('无')}")
 
         # 检查UV层数量 (>1)
         uv_multi = [f"{o.name} ({len(o.data.uv_layers)}个UV)" for o in bpy.data.objects
                     if o.type == 'MESH' and len(o.data.uv_layers) > 1]
-        results.append(f"多UV层Mesh: {', '.join(uv_multi) or '无'}")
+        results.append(self.tr("多UV层Mesh: ")+f"{', '.join(uv_multi) or self.tr('无')}")
 
                 # 检查所有Mesh的UV层，并按UV名称分组
         uv_group = {}
@@ -87,7 +87,7 @@ class CheckWidget(QWidget):
                     uv_group.setdefault(layer.name, []).append(obj.name)
         # 只有当有多个UV组时才显示分组信息
         if len(uv_group) > 1:
-            results.append("UV层分组:")
+            results.append(self.tr("UV层分组:"))
             for uv_name, objs in uv_group.items():
                 line = f"  {uv_name}: {', '.join(objs)}"
                 results.append(line)
@@ -95,7 +95,7 @@ class CheckWidget(QWidget):
             # 只有一个UV名称存在，无需分组显示
             pass
         else:
-            results.append("无UV层检测到")
+            results.append(self.tr("无UV层检测到"))
 
         # 检查视图层中的多余集合，深度遍历子集合"，深度遍历子集合
         def collect_extra(layer_col, base_names):
@@ -108,21 +108,21 @@ class CheckWidget(QWidget):
         root = bpy.context.view_layer.layer_collection
         base_names = {root.name, 'Collection'}
         extra_cols = collect_extra(root, base_names)
-        results.append(f"删除多余集合: {', '.join(extra_cols) or '无'}")
+        results.append(self.tr("删除多余集合: ")+f"{', '.join(extra_cols) or self.tr('无')}")
 
         # 检查是否都是骨骼子集
         arm = next((o for o in bpy.context.scene.objects if o.type == 'ARMATURE'), None)
         if arm:
             non_child = [o.name for o in bpy.context.scene.objects if o.parent != arm and o !=arm]
-            results.append(f"没把骨骼设为父级: {', '.join(non_child) or '无'}")
+            results.append(self.tr("没把骨骼设为父级:") +f"{', '.join(non_child) or self.tr('无')}")
         else:
-            results.append("场景中无骨骼Armature")
+            results.append(self.tr("场景中无骨骼Armature"))
 
         # 检查灯光和相机
         lights = [o.name for o in bpy.context.scene.objects if o.type == 'LIGHT']
         cams = [o.name for o in bpy.context.scene.objects if o.type == 'CAMERA']
-        results.append(f"删除灯光对象: {', '.join(lights) or '无'}")
-        results.append(f"删除相机对象: {', '.join(cams) or '无'}")
+        results.append(self.tr("删除灯光对象:") +f"{', '.join(lights) or self.tr('无')}")
+        results.append(self.tr("删除相机对象:") +f"{', '.join(cams) or self.tr('无')}")
 
         # 更新结果视图
         def update_view():
@@ -155,7 +155,7 @@ class CheckWidget(QWidget):
                 if obj not in visible_objs or not in_col:
                     removed_names.append(obj.name)
                     bpy.data.objects.remove(obj, do_unlink=True)
-        results.append(f"删除对象: {', '.join(removed_names) or '无'}")
+        results.append(self.tr(f"删除对象: ")+f"{', '.join(removed_names) or self.tr('无')}")
 
         # 清理孤立的 Mesh 数据块
         removed_mesh_data = []
@@ -163,7 +163,7 @@ class CheckWidget(QWidget):
             if mesh.users == 0:
                 removed_mesh_data.append(mesh.name)
                 bpy.data.meshes.remove(mesh)
-        results.append(f"删除Mesh数据: {', '.join(removed_mesh_data) or '无'}")
+        results.append(self.tr("删除Mesh数据: ")+f"{', '.join(removed_mesh_data) or self.tr('无')}")
 
         # 清理未使用的材质，包括 fake user
         removed_mats = []
@@ -173,7 +173,7 @@ class CheckWidget(QWidget):
             if mat.users == 0:
                 removed_mats.append(mat.name)
                 bpy.data.materials.remove(mat)
-        results.append(f"删除材质: {', '.join(removed_mats) or '无'}")
+        results.append(self.tr("删除材质: ")+f"{', '.join(removed_mats) or self.tr('无')}")
 
         # 更新结果视图
         def update_view():
