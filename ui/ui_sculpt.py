@@ -590,6 +590,7 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
     # [!] 使用弱引用持有Qt实例
     _qt_app_ref = None
     _qt_window_ref = None
+    _qt_window = None       # 新增：强引用
     _press_brush=False
     auto_close=False
     @classmethod
@@ -605,15 +606,11 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
             self._cleanup()
             return {'FINISHED'}
         if event.type == 'SPACE' and event.value == 'PRESS':
-            # print('123')
-            if self._qt_window_ref and self._qt_window_ref():
-                window = self._qt_window_ref()
-                window.show()
-                # [!] Windows专用激活代码
-                if platform.system() == "Windows":
-                    window.winId()  # 强制创建窗口句柄
-                window.raise_()
-                window.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
+            w = self.__class__._qt_window
+            if w:
+                w.show()
+                w.raise_()
+                w.Sculptwheel.set_global_mouse(*self.get_mouse_pos())
         elif event.type in ['SPACE','Z'] and event.value == 'RELEASE':
             # 把 Blender 坐标先给 Sculptwheel，内部会做转换并重绘
             try:
@@ -651,21 +648,21 @@ class QtSculptMenuOperator(BaseQtOperator,bpy.types.Operator):
             # if hasattr(bpy, '_embedded_qt'):
             #     bpy._embedded_qt.close()
             #     del bpy._embedded_qt
-
-            old = getattr(bpy, "_embedded_qt", None)
+            # —— 安全销毁旧窗口 ——
+            old = getattr(self.__class__, "_qt_window", None)
             if old is not None:
-                old.deleteLater()
-                del bpy._embedded_qt
-                # 处理一下事件队列，确保 C++ 对象真的被销毁
-                QApplication.processEvents()
-            print('[DEBUG]:invoke',old)
-            bpy._embedded_qt = SculptMenuWidget(context,parent_hwnd,init_pos=mouse_pose,ops=self)
+                old.close()
+            # 创建新窗口
+            widget = self.set_embedded_qt(context,parent_hwnd,init_pos=mouse_pose)
 
-            self.__class__._qt_window_ref = weakref.ref(bpy._embedded_qt)
-# 启动模态
+            self.__class__._qt_window = widget
+            self.__class__._qt_window_ref = weakref.ref(widget)
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
             
         except Exception as e:
             self.report({'ERROR'}, f"窗口创建失败: {str(e)}")
             return {'CANCELLED'}
+    def set_embedded_qt(self,context,parent_hwnd,init_pos):
+        '返回主窗口'
+        return SculptMenuWidget(context,parent_hwnd,init_pos=init_pos,ops=self)
