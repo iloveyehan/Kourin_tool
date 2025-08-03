@@ -143,7 +143,7 @@ full_skeleton_dict={
     'knees_L':['knees_L','Z_knees_L','knees_l','Z_knees_l'],
     'Lowerleg_L':['Lower_Leg_L','lower_leg_L','Lower_leg_L','Lower_Leg_L','Lower_Leg_L','lower_leg_l','Lower_leg_l','Lower_Leg_l','Lower_Leg_l','Left knee','Lowerleg_L','LowerLeg.L','Lowerleg_l','LowerLeg.l','LowerLeg_L','LowerLeg_l','Lower_leg.L','Lower_leg.l'],
     'Foot_L':['Left ankle','Foot_L','Foot.L','foot.L','Foot_l','Foot.l','foot.l'],
-    'Toe_L':['Left Toe','Toe_L','Toe.L','Toe_l','Toe.l'],
+    'Toe_L':['Left Toe','Toe_L','Toe.L','Toe_l','Toe.l','Toes_L'],
 
     'Shoulder_R':['Shoulder_R','shoulder_r','rightshoulder','right shoulder','Shoulder.R','Shoulder.r','Right shoulder'],
     'Upperarm_R':['Upper_Arm_R','Upper_arm_R','Right arm','Upperarm_R','Upperarm_r','Upperarm.R','Upperarm.r','UpperArm_R','UpperArm_r','UpperArm.R','UpperArm.r','Upper_arm.R','Upper_arm.r'],
@@ -180,7 +180,7 @@ full_skeleton_dict={
     'knees_R':['knees_R','Z_knees_R','knees_r','Z_knees_r'],
     'Lowerleg_R':['Lower_Leg_R','Lowerleg_R','LowerLeg.R','Lowerleg_r','LowerLeg.r','LowerLeg_R','LowerLeg_r','Lower_leg.R','Lower_leg.r','Right knee'],
     'Foot_R':['Foot_R','Foot.R','foot.R','Foot_r','Foot.r','foot.r','Right ankle'],
-    'Toe_R':['Toe_R','Toe.R','Toe_r','Toe.r','Right Toe'],
+    'Toe_R':['Toe_R','Toe.R','Toe_r','Toe.r','Right Toe','Toes_R'],
 }
 
 def finde_common_bones():

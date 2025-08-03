@@ -406,8 +406,9 @@ class SculptQuickWigdet(QWidget):
         for icon,bt_name,check,tooltip in [
             ('hide_off.svg','faceset_from_visible',False,self.tr('从视图可见顶点创建面组')),
             ('editmode_hlt.svg','faceset_from_edit',False,self.tr('从选中的顶点创建面组')),
+            ('armature_data.svg','edit_to_paint_with_a',False,self.tr('选中骨架,并进入权重绘制')),
         ]:
-            btn = Button('',icon,(40,40))
+            btn = Button('',icon,(30,30))
 
             btn.setProperty('bt_name', bt_name)
             
@@ -467,6 +468,23 @@ class SculptQuickWigdet(QWidget):
         name = self.sender().property('bt_name')
         func = getattr(self, f"handle_{name}")
         bpy.app.timers.register(partial(func, checked))
+    @undoable
+    def handle_edit_to_paint_with_a(self):
+        from ..utils.armature import comfirm_one_arm
+        # n=0     
+        # for m in bpy.context.active_object.modifiers:
+        #     if m.type=='ARMATURE' and m.show_viewport and m.object is not None:
+        #         n=n+1
+        # if n>1:
+        #     self.msg='有多个可用的骨骼修改器,先禁用多余的'
+        #     return False
+        if not comfirm_one_arm(bpy.context.active_object):
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+            return
+        for m in bpy.context.active_object.modifiers:
+            if m.type=='ARMATURE' and m.show_viewport and m.object is not None:
+                m.object.select_set(True)
+        bpy.ops.paint.weight_paint_toggle()
     @undoable
     def handle_faceset_from_edit(self):
         bpy.ops.sculpt.face_sets_create(mode='SELECTION')

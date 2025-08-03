@@ -25,15 +25,15 @@ from PySide6.QtCore import Qt, QPointF, QRectF, QSize,QPoint
 
 
 from ..common.class_loader.auto_load import ClassAutoloader
-edit_menu=ClassAutoloader(Path(__file__))
-def reg_edit_menu():
-    edit_menu.init()
-    edit_menu.register()
-def unreg_edit_menu():
-    edit_menu.unregister()
+pose_menu=ClassAutoloader(Path(__file__))
+def reg_pose_menu():
+    pose_menu.init()
+    pose_menu.register()
+def unreg_pose_menu():
+    pose_menu.unregister()
 
 
-class EditQuickWigdet(QWidget):
+class PoseQuickWigdet(QWidget):
     def __init__(self,parent,radius):
         super().__init__()
         # 创建布局
@@ -260,7 +260,7 @@ class EditQuickWigdet(QWidget):
         sculpt=bpy.context.scene.tool_settings.sculpt
         sculpt.use_automasking_boundary_face_sets=not sculpt.use_automasking_boundary_face_sets
 
-class EditMenuWidget(QWidget):
+class PoseMenuWidget(QWidget):
     def __init__(self, context, parent_hwnd, init_pos,ops=None):
         super().__init__()
         self.ops=ops
@@ -307,7 +307,7 @@ class EditMenuWidget(QWidget):
         radius=100
 
  
-        self.SculptQuickWigdet=EditQuickWigdet(self,radius)
+        self.SculptQuickWigdet=PoseQuickWigdet(self,radius)
         self.SculptQuickWigdet.show()
         
         self.setLayout(self.layout)
@@ -328,13 +328,13 @@ class EditMenuWidget(QWidget):
 
 
 
-class QtEditMenuOperator(BaseQtOperator,bpy.types.Operator):
-    bl_idname = "qt.edit_menu"
+class QtPoseMenuOperator(BaseQtOperator,bpy.types.Operator):
+    bl_idname = "qt.pose_menu"
     bl_label = "编辑快捷菜单"
     auto_close=False
     @classmethod
     def poll(cls, context):
-        if bpy.context.mode == 'EDIT_MESH':#4.5
+        if bpy.context.mode == 'POSE':#4.5
             return True
         return False
     def key_space_release_ops(self):
@@ -342,4 +342,4 @@ class QtEditMenuOperator(BaseQtOperator,bpy.types.Operator):
     def key_space_press_ops(self):
         pass
     def set_embedded_qt(self, context, parent_hwnd, init_pos):
-        return EditMenuWidget(context,parent_hwnd,init_pos,ops=self)
+        return PoseMenuWidget(context,parent_hwnd,init_pos,ops=self)

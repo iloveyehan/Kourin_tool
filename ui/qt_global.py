@@ -1,3 +1,6 @@
+
+
+
 class GlobalProperty:
     _instance = None
 
@@ -26,6 +29,26 @@ class GlobalProperty:
         self.current_obj_sk = None
         self.just_switched_obj_sk = False
         self.obj_sync_col={}
+
+        #存当前物体和 上一个mesh物体
+        self.last_mesh_obj = None  # 存上一个选中的 Mesh 对象
+        self.obj_ptr=None
+        self.obj=None
+        self.get_obj()
+
+    def get_obj(self):
+        if self.obj_ptr is not None:
+            from ..utils.object import obj_from_ptr
+            new_obj = obj_from_ptr(self.obj_ptr)
+            self.obj=new_obj
+            # 如果是 mesh 类型的对象并且发生了变化
+            if new_obj != self.last_mesh_obj and new_obj and new_obj.type == 'MESH':
+                if self.obj and self.obj.type == 'MESH':
+                    self.last_mesh_obj = self.obj  # 保存旧的 mesh 对象
+
+            # self.obj=new_obj
+            # return self.obj
+
     @classmethod
     def get(cls):
         if cls._instance is None:

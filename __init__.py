@@ -1,4 +1,5 @@
 import importlib
+import os
 import subprocess
 import sys
 import typing
@@ -15,8 +16,7 @@ from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_
 from .reg import keys
 from .update import KourinCheckUpdateOperator
 from . import zh_CN
-
-
+os.environ["QT_LOGGING_RULES"] = "qt.qpa.*=false"
 # Add-on info
 bl_info = {
     "name": "Kourin_tool",
@@ -135,6 +135,7 @@ if is_pyside6_installed():
     from .panels.main_button import main_button_register,main_button_unregister
     from .ui.ui_vrc_panel import reg_ui_vrc_panel,unreg_ui_vrc_panel
     from .ui.ui_sculpt import reg_sculpt_menu,unreg_sculpt_menu
+    from .ui.ui_pose import reg_pose_menu,unreg_pose_menu
     from .ui.ui_edit import reg_edit_menu,unreg_edit_menu
     from .ui.ui_weight_paint import reg_weight_paint_menu,unreg_weight_paint_menu
     from .operators.draw import reg_draw_info,unreg_draw_info
@@ -156,6 +157,7 @@ if is_pyside6_installed():
         reg_ui_vrc_panel()
         reg_sculpt_menu()
         reg_edit_menu()
+        reg_pose_menu()
         reg_weight_paint_menu()
         
         main_button_register()
@@ -168,6 +170,7 @@ if is_pyside6_installed():
         unreg_ui_vrc_panel()
         unreg_sculpt_menu()
         unreg_edit_menu()
+        unreg_pose_menu()
         unreg_weight_paint_menu()
         Robust_unregister()
         unreg_origin()

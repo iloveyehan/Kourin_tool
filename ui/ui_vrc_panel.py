@@ -136,7 +136,8 @@ def register_msgbus():
 def on_shape_key_index_change(qt_w=None):
     # print('刷新 sk index')
     # 如果外部没传进来，就用全局的 qt_window
-
+    from .qt_global import GlobalProperty as GP
+    gp = GP.get()
     global qt_window
 
 
@@ -144,9 +145,11 @@ def on_shape_key_index_change(qt_w=None):
     obj = bpy.context.view_layer.objects.active
     if obj is None:
         return
+    gp.obj_ptr = obj.as_pointer()
+    gp.get_obj()
     qt_window.obj_ptr = obj.as_pointer()
     qt_window.get_obj()
-
+    print('形态键更新',qt_window.obj)
     # —— 核心：构造 index 并映射 —— #
     # 1. 拿到当前 active_shape_key_index
     idx = qt_window.obj.active_shape_key_index
@@ -163,41 +166,30 @@ def on_shape_key_index_change(qt_w=None):
         # lv.scrollTo(proxy_index, QtWidgets.QAbstractItemView.PositionAtCenter)
 
     # —— 同步集合里的 shape key —— #
-    from .qt_global import GlobalProperty as GP
-    gp = GP.get()
+    
     if (qt_window.obj_ptr in gp.obj_sync_col and
             gp.obj_sync_col[qt_window.obj_ptr] is not None):
         sync_active_shape_key()
 
     return None
 
-# def on_shape_key_index_change(qt_window=None):
-#     print('刷新sk index')
-#     if qt_window is None:
-#         global qt_window
-#         qt_window=qt_window
-#     obj = bpy.context.view_layer.objects.active
-#     qt_window.obj_ptr=obj.as_pointer()
-#     qt_window.get_obj()
-#     if qt_window is not None:
-#         index=qt_window.qt_shapekey.model.index((qt_window.obj.active_shape_key_index))
-
-#         qt_window.qt_shapekey.list_view.setCurrentIndex(index)
-
-#     from .qt_global import GlobalProperty as GP
-#     gp=GP.get()
-#     if qt_window.obj_ptr in gp.obj_sync_col and gp.obj_sync_col[qt_window.obj_ptr] is not None:
-#         sync_active_shape_key()
-#     return None
 
 def on_active_change():
     from .qt_global import GlobalProperty as GP
     # print('qt_window',qt_window,'物体切换')
+    obj=bpy.context.view_layer.objects.active
     gp =GP.get()
+    if obj is not None:
+        gp.obj_ptr=obj.as_pointer()
+        gp.get_obj()
     if qt_window is not None:
         #sk过滤搜索词
         # 保存旧对象的搜索词
+        print('旧')
+        print(qt_window.obj)
         qt_window.get_obj()
+        print('旧get_obj')
+        print(qt_window.obj)
         if qt_window.obj and qt_window.qt_shapekey:
             search_text = qt_window.qt_shapekey.search_edit.text()
             gp._sk_search_map[qt_window.obj_ptr] = search_text
@@ -207,6 +199,9 @@ def on_active_change():
             return
         qt_window.obj_ptr=obj.as_pointer()
         qt_window.get_obj()
+        print('新')
+        print(qt_window.obj)
+        
         # ptr_obj_new = obj.as_pointer()
         qt_window.qt_vertexgroup.refresh_vertex_groups()
 
@@ -254,6 +249,7 @@ def mirror_x_changed(*args):
         obj = bpy.context.view_layer.objects.active
         if obj is None:
             return
+        
         qt_window.obj_ptr=obj.as_pointer()
         qt_window.get_obj()
         # print(f"当前物体 {obj.name} 的 use_mesh_mirror_x = {obj.use_mesh_mirror_x}")

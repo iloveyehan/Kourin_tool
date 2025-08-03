@@ -16,6 +16,8 @@ keys = {
          'value': 'PRESS', },
         {'label': 'Weight Paint Mode', 'keymap': 'Weight Paint', 'idname': 'qt.weight_paint_menu', 'type': 'SPACE',
          'value': 'PRESS', },
+        {'label': 'Weight Paint Mode', 'keymap': 'Pose', 'idname': 'qt.pose_menu', 'type': 'SPACE',
+         'value': 'PRESS', },
     ],
     # 'SMART_VERT': [
     #     {'label': 'Merge Last', 'keymap': 'Mesh', 'idname': 'Kourin_tool.vert_merge_last', 'type': 'ONE', 'value': 'PRESS',

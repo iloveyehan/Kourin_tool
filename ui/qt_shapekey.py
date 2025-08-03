@@ -382,7 +382,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 value = model.data(index, ListModel.ValueRole)
                 new_val = 0.0 if value >= 0.5 else 1.0
                 model.setData(index, new_val, ListModel.ValueRole)
-
+                self.qt_window.get_obj()
                 if self.qt_window.obj is not None:
                     sk_name = model.data(index, ListModel.NameRole)
                     self.qt_window.obj.data.shape_keys.key_blocks[sk_name].value = new_val
