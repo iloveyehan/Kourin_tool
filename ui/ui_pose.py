@@ -106,7 +106,7 @@ class PoseQuickWigdet(QWidget):
         for icon,bt_name,check,tooltip in [
             # ('hide_off.svg','faceset_from_visible',False,'从视图可见顶点创建面组'),
             ('editmode_hlt.svg','faceset_from_edit',False,self.tr('从选中的顶点创建面组')),
-            ('armature_data.svg','edit_to_paint_with_a',False,self.tr('选中骨架,并进入权重绘制')),
+            ('armature_data.svg','pose_to_paint_with_a',False,self.tr('选中骨架,并进入权重绘制')),
         ]:
             btn = Button('',icon,(40,40))
 
@@ -183,7 +183,7 @@ class PoseQuickWigdet(QWidget):
         bpy.ops.kourin.vg_asign_new_group()
     
     @undoable
-    def handle_edit_to_paint_with_a(self):
+    def handle_pose_to_paint_with_a(self):
         from ..utils.armature import comfirm_one_arm
         # n=0     
         # for m in bpy.context.active_object.modifiers:
@@ -192,12 +192,20 @@ class PoseQuickWigdet(QWidget):
         # if n>1:
         #     self.msg='有多个可用的骨骼修改器,先禁用多余的'
         #     return False
-        if not comfirm_one_arm(bpy.context.active_object):
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+        if gp.last_mesh_obj_ptr is None:
+            self.msg=self.tr('没有历史mesh记录')
+            return
+        gp.get_last_obj()
+        if not comfirm_one_arm(gp.last_mesh_obj):
             self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
-        for m in bpy.context.active_object.modifiers:
+        for m in gp.last_mesh_obj.modifiers:
             if m.type=='ARMATURE' and m.show_viewport and m.object is not None:
                 m.object.select_set(True)
+                gp.last_mesh_obj.select_set(True)
+                bpy.context.view_layer.objects.active=gp.last_mesh_obj
         bpy.ops.paint.weight_paint_toggle()
     @undoable
     def handle_faceset_from_edit(self):

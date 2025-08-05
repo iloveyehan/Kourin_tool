@@ -163,6 +163,10 @@ class EditQuickWigdet(QWidget):
             func()  # 原函数执行
             # 然后注册 toast 显示（下一帧）
             def show_toast():
+                if self.msg=='':
+                    if hasattr(self,'ops') and hasattr(self.ops,'auto_close'):
+                        self.ops.auto_close=True
+                        return
                 toast = ToastWindow(self.msg, parent=self.edit_widget)
                 toast.show_at_center_of()
                 return None  # 一次性定时器
@@ -184,6 +188,7 @@ class EditQuickWigdet(QWidget):
     
     @undoable
     def handle_edit_to_paint_with_a(self):
+        self.msg=''
         from ..utils.armature import comfirm_one_arm
         # n=0     
         # for m in bpy.context.active_object.modifiers:
@@ -205,15 +210,24 @@ class EditQuickWigdet(QWidget):
         bpy.ops.sculpt.face_sets_create(mode='SELECTION')
     @undoable
     def handle_weight_by_modi(self):
+        from ..utils.armature import comfirm_one_arm,get_arm_modi_obj
+        obj=bpy.context.object
+        if not comfirm_one_arm(obj):
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+            return
+        modi_arm=get_arm_modi_obj(obj)
         settings = bpy.context.scene.kourin_weight_transfer_settings
         if not settings.source_object:
             self.msg=self.tr('先设置权重来源')
             print(self.msg)
             return
-        obj=bpy.context.object
+        
         mode_t=obj.mode
         bpy.ops.kourin.vg_asign_new_group()
         bpy.ops.object.mode_set(mode='OBJECT')
+        if modi_arm:
+            pose_t=modi_arm.object.data.pose_position
+            modi_arm.object.data.pose_position='REST'
         bpy.ops.kourin.vg_trans_modi()
         modi=obj.modifiers.active
         bpy.ops.object.datalayout_transfer(modifier=modi.name)
@@ -221,22 +235,39 @@ class EditQuickWigdet(QWidget):
             bpy.ops.object.modifier_apply(modifier=modi.name, report=True)
         except:
             bpy.ops.kourin.apply_modi_with_shapekey(mod_name=modi.name)
+        if modi_arm:
+            modi_arm.object.data.pose_position=pose_t
         bpy.ops.object.mode_set(mode=mode_t)
     @undoable
     def handle_weight_by_algorithm(self):
+        from ..utils.armature import comfirm_one_arm,get_arm_modi_obj
+        obj=bpy.context.object
+        if not comfirm_one_arm(obj):
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+            return
+        modi=get_arm_modi_obj(obj)
+        
+
         settings = bpy.context.scene.kourin_weight_transfer_settings
         if not settings.source_object:
             self.msg=self.tr('先设置权重来源')
             print(self.msg)
             return
-        obj=bpy.context.object
+        
         mode_t=obj.mode
+        # pose_t=bpy.context.object.data.pose_position = 'POSE'
+
         bpy.ops.kourin.vg_asign_new_group()
         vg=bpy.context.object.vertex_groups.active
         object_settings = obj.kourin_weight_transfer_settings
         object_settings.vertex_group=vg.name
         bpy.ops.object.mode_set(mode='OBJECT')
+        if modi:
+            pose_t=modi.object.data.pose_position
+            modi.object.data.pose_position='REST'
         bpy.ops.kourin.skin_weight_transfer()
+        if modi:
+            modi.object.data.pose_position=pose_t
         bpy.ops.object.mode_set(mode=mode_t)
         try:
             obj.vertex_groups.remove(vg) 
