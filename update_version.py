@@ -3,7 +3,7 @@ import json
 import re
 
 # 定义新版本号（字符串形式）
-version = '1.2.4'
+version = '1.2.5'
 
 def update_json():
     json_file = 'version.json'
