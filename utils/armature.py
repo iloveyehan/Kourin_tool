@@ -146,7 +146,7 @@ full_skeleton_dict={
     'Upperleg_L':['Upper_Leg_L','Upper_leg_L','Left leg','Upperleg_L','UpperLeg.L','Upperleg_l','UpperLeg.l','UpperLeg_L','UpperLeg_l','Upper_leg.L','Upper_leg.l',],
     'knees_L':['knees_L','Z_knees_L','knees_l','Z_knees_l'],
     'Lowerleg_L':['Lower_Leg_L','lower_leg_L','Lower_leg_L','Lower_Leg_L','Lower_Leg_L','lower_leg_l','Lower_leg_l','Lower_Leg_l','Lower_Leg_l','Left knee','Lowerleg_L','LowerLeg.L','Lowerleg_l','LowerLeg.l','LowerLeg_L','LowerLeg_l','Lower_leg.L','Lower_leg.l'],
-    'Foot_L':['Left ankle','Foot_L','Foot.L','foot.L','Foot_l','Foot.l','foot.l'],
+    'Foot_L':['Left ankle','Toe_Base_L','Foot_L','Foot.L','foot.L','Foot_l','Foot.l','foot.l'],
     'Toe_L':['Left Toe','Toe_L','Toe.L','Toe_l','Toe.l','Toes_L'],
 
     'Shoulder_R':['Shoulder_R','shoulder_r','rightshoulder','right shoulder','Shoulder.R','Shoulder.r','Right shoulder'],
@@ -183,7 +183,7 @@ full_skeleton_dict={
     'Upperleg_R':['Upper_Leg_R','lower_leg_R','Lower_leg_R','Lower_Leg_R','Lower_Leg_R','lower_leg_r','Lower_leg_r','Lower_Leg_r','Lower_Leg_r','Upperleg_R','UpperLeg.R','Upperleg_r','UpperLeg.r','UpperLeg_R','UpperLeg_r','Upper_leg.R','Upper_leg.r','Right leg'],
     'knees_R':['knees_R','Z_knees_R','knees_r','Z_knees_r'],
     'Lowerleg_R':['Lower_Leg_R','Lowerleg_R','LowerLeg.R','Lowerleg_r','LowerLeg.r','LowerLeg_R','LowerLeg_r','Lower_leg.R','Lower_leg.r','Right knee'],
-    'Foot_R':['Foot_R','Foot.R','foot.R','Foot_r','Foot.r','foot.r','Right ankle'],
+    'Foot_R':['Foot_R','Toe_Base_R','Foot.R','foot.R','Foot_r','Foot.r','foot.r','Right ankle'],
     'Toe_R':['Toe_R','Toe.R','Toe_r','Toe.r','Right Toe','Toes_R'],
 }
 
