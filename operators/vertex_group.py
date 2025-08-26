@@ -600,11 +600,15 @@ class Kourin_vg_asign_new_group(bpy.types.Operator):
             return {'CANCELLED'}
         mode_t=obj.mode
         vg_w_t=context.scene.tool_settings.vertex_group_weight
+        use_auto_normalize_t=context.scene.tool_settings.use_auto_normalize
         bpy.ops.object.mode_set(mode='EDIT') 
         context.scene.tool_settings.vertex_group_weight=1
+        context.scene.tool_settings.use_auto_normalize = False
+
         bpy.ops.object.vertex_group_assign_new()
         context.scene.tool_settings.vertex_group_weight=vg_w_t
         bpy.ops.object.mode_set(mode=mode_t)
+        context.scene.tool_settings.use_auto_normalize=use_auto_normalize_t
         return {'FINISHED'}
 
 class Kourin_vg_rm_select(bpy.types.Operator):
