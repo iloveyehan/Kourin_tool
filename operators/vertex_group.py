@@ -610,7 +610,32 @@ class Kourin_vg_asign_new_group(bpy.types.Operator):
         bpy.ops.object.mode_set(mode=mode_t)
         context.scene.tool_settings.use_auto_normalize=use_auto_normalize_t
         return {'FINISHED'}
+class Kourin_vg_asign_new_group_for_trans(bpy.types.Operator):
+    """ctrl G """
+    bl_idname = "kourin.vg_asign_new_group_for_trans"
+    bl_label = "Ctrl G 新建组"
+    bl_options = {'UNDO'}
 
+    @classmethod
+    def poll(cls, context):
+        return context.active_object and context.active_object.type=='MESH'
+
+    def execute(self, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH':
+            return {'CANCELLED'}
+        mode_t=obj.mode
+        vg_w_t=context.scene.tool_settings.vertex_group_weight
+        use_auto_normalize_t=context.scene.tool_settings.use_auto_normalize
+        bpy.ops.object.mode_set(mode='EDIT') 
+        context.scene.tool_settings.vertex_group_weight=1
+        context.scene.tool_settings.use_auto_normalize = False
+
+        bpy.ops.object.vertex_group_assign_new()
+        context.scene.tool_settings.vertex_group_weight=vg_w_t
+        bpy.ops.object.mode_set(mode=mode_t)
+        context.scene.tool_settings.use_auto_normalize=use_auto_normalize_t
+        return {'FINISHED'}
 class Kourin_vg_rm_select(bpy.types.Operator):
     """把顶点移出顶点组"""
     bl_idname = "kourin.vg_rm_select"

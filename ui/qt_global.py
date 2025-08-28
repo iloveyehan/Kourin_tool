@@ -7,7 +7,8 @@ class GlobalProperty:
     def __init__(self):
         self.imgui_vrc_instance=[]
         self.debug=True
-
+        #表面形变预设
+        self.surface_defrom_name='shinano'
         #权重传送
         self.that_obj=None
         #镜像顶点组

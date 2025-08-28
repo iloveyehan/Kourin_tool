@@ -22,7 +22,7 @@ bl_info = {
     "name": "Kourin_tool",
     "author": "Cupcko[649730016@qq.com]",
     "blender": (3, 5, 0),
-    "version": (1, 2, 6),
+    "version": (1, 2, 7),
     "description": "This is a template for building addons",
     "warning": "",
     "doc_url": "[documentation url]",
@@ -130,6 +130,7 @@ if is_pyside6_installed():
     from .operators.transfer import reg_trans,unreg_trans
     from .operators.color_selector import reg_color_selector,unreg_color_selector
     from .operators.vrc_bone_ops import reg_vrc_bone_ops,unreg_vrc_bone_ops
+    from .operators.io import reg_mesh_io,unreg_mesh_io
     # from .operators.tool_vert import reg_tool_vert,unreg_tool_vert
 
     from .panels.main_button import main_button_register,main_button_unregister
@@ -147,6 +148,7 @@ if is_pyside6_installed():
         reg_vrc_vg_ops()
         reg_vrc_sk_ops()
         reg_vrc_bone_ops()
+        reg_mesh_io()
         reg_draw_info()
         reg_origin()
         
@@ -176,6 +178,7 @@ if is_pyside6_installed():
         unreg_origin()
         unreg_trans()
         unreg_vrc_bone_ops()
+        unreg_mesh_io()
         unreg_color_selector()
 
         
