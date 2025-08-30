@@ -64,6 +64,7 @@ class WeightMirror(BaseWidget):
             
 
         for name,bt_name,check,tooltip in [
+            (self.tr('合一'),'weight_cut_combine',False,self.tr('剪切所有权重合并到激活骨骼')),
             (self.tr('剪切'),'weight_cut',False,self.tr('剪切权重')),
             (self.tr('粘贴'),'weight_paste',False,self.tr('粘贴权重')),
         ]:
@@ -174,6 +175,9 @@ class WeightMirror(BaseWidget):
     @undoable
     def handle_weight_cut(self):
         bpy.ops.kourin.copy_vertex_group_weights()
+    @undoable
+    def handle_weight_cut_combine(self):
+        bpy.ops.kourin.combine_selected_bone_weights(delete=False)
 
 
     @undoable

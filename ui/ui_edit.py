@@ -147,7 +147,6 @@ class EditQuickWigdet(QWidget):
             (self.tr('组'),'vg_asign',False,self.tr('创建顶点组')),
             (self.tr('传权重,修改器'),'weight_by_modi',False,self.tr('用数据传递修改器')),
             (self.tr('传权重,算法'),'weight_by_algorithm',False,self.tr('用算法传权重')),
-            (self.tr('表面'),'surface_defrom',False,self.tr('daoru ')),
             
         ]:
             btn = Button(name)
@@ -165,6 +164,12 @@ class EditQuickWigdet(QWidget):
         self.combo = QComboBox()
         self.combo.addItems(strings_list)
         self.combo.currentTextChanged.connect(self.on_combo_changed)
+        # 如果上次选择的项存在，设置为当前选择项
+        from .qt_global import GlobalProperty as gp
+        if gp.get().surface_defrom_name is not None:
+            index = self.combo.findText(gp.get().surface_defrom_name)
+            if index >= 0:
+                self.combo.setCurrentIndex(index)
         self.combo.setStyleSheet("""
             QComboBox {
                 color: white; /* 设置字体颜色为白色 */
@@ -182,7 +187,7 @@ class EditQuickWigdet(QWidget):
         self.checkable_buttons = {}
         for name,bt_name,check,tooltip in [
             (self.tr('紧身'),'surface_defrom',False,self.tr('紧身类型')),
-            (self.tr('宽松'),'surface_defrom_soft',False,self.tr('宽松类型')),
+            (self.tr('宽松'),'surface_defrom_loose',False,self.tr('宽松类型')),
             
         ]:
             btn = Button(name)
@@ -283,6 +288,70 @@ class EditQuickWigdet(QWidget):
         bpy.ops.object.select_all(action='DESELECT')
         bpy.context.view_layer.objects.active=this_obj
         this_obj.select_set(True)
+        object_settings = this_obj.kourin_weight_transfer_settings
+        object_settings.vertex_group=vg.name
+        bpy.ops.kourin.skin_weight_transfer()
+        for o in temp_objs:
+            o.select_set(True)
+        bpy.ops.object.join_shapes()
+        for o in temp_objs:
+            bpy.data.meshes.remove(o.data)
+        bpy.data.meshes.remove(surface_obj.data)
+        
+        for sk in this_obj.data.shape_keys.key_blocks:
+            if 'temp' in sk.name:
+                sk.name=sk.name[5:]
+
+        # bpy.ops.kourin.skin_weight_transfer()
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in selected_t:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active=this_obj
+        bpy.ops.object.mode_set(mode=mode_t)
+        
+    @undoable
+    def handle_surface_defrom_loose(self):
+        from ..ui.qt_global import GlobalProperty as gp
+        # 备份
+        this_obj=bpy.context.active_object
+        bpy.ops.kourin.vg_asign_new_group()
+        vg=bpy.context.object.vertex_groups.active
+        mode_t=this_obj.mode
+        selected_t=bpy.context.selected_objects
+        #开始
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.kourin.load_loose_surfacedeform(file_name=gp.get().surface_defrom_name + '_loose_surface')
+        surface_obj=bpy.context.active_object
+        sk_surface_obj=surface_obj.data.shape_keys.key_blocks
+        sk_num=len(surface_obj.data.shape_keys.key_blocks)
+        temp_objs=[]#创建了根据sk命名的临时obj
+        for i in range(sk_num):
+            if i:
+                o = this_obj.copy()
+                o.data = this_obj.data.copy()
+                o.name = f'temp_{sk_surface_obj[i].name}'
+                o.data.name = f'temp_{sk_surface_obj[i].name}'
+                bpy.context.collection.objects.link(o)
+                temp_objs.append(o)
+                print('temp创建完成',i)
+        #切换this_obj绑定到sk_surface_obj,依次切换value
+        for o in temp_objs:
+            mod=o.modifiers.new('temp_sd','SURFACE_DEFORM')     
+            mod.target=surface_obj
+            mod.vertex_group=vg.name
+            o.select_set(True)
+            bpy.context.view_layer.objects.active=o
+            bpy.ops.object.surfacedeform_bind(modifier="temp_sd")
+            sk_surface_obj[o.name[5:]].value=1
+            bpy.ops.kourin.apply_modi_with_shapekey(mod_name=mod.name)
+            sk_surface_obj[o.name[5:]].value=0
+        #合并到this_obj
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.context.view_layer.objects.active=this_obj
+        this_obj.select_set(True)
+        object_settings = this_obj.kourin_weight_transfer_settings
+        object_settings.vertex_group=vg.name
+        bpy.ops.kourin.skin_weight_transfer()
         for o in temp_objs:
             o.select_set(True)
         bpy.ops.object.join_shapes()

@@ -5,7 +5,7 @@ import numpy as np
 from .vertex_group import determine_and_convert
 
 from ..utils.mesh_data_transfer import MeshData
-from ..utils.armature import finde_common_bones, pose_to_reset
+from ..utils.armature import comfirm_one_arm, finde_common_bones, get_arm_modi_obj, pose_to_reset
 
 from ..common.class_loader.auto_load import ClassAutoloader
 vrc_bone_ops=ClassAutoloader(Path(__file__))
@@ -263,14 +263,26 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
         description="对选中骨骼的对称骨骼执行相同操作",
         default=True
     )
+    delete: bpy.props.BoolProperty(
+        name="删除骨骼",
+        description="合并后删除无用骨骼",
+        default=True
+    )
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return obj and obj.type == 'ARMATURE'
+        return obj and obj.type=='MESH'
     def execute(self, context):
         from .vertex_group import determine_and_convert
-        armature = context.active_object
-        active_bone = context.active_bone
+        
+        this_obj = context.active_object
+        mode_t=this_obj.mode
+        selected=bpy.context.selected_objects
+        if not comfirm_one_arm(this_obj):
+            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+            return
+        armature=get_arm_modi_obj(this_obj).object
+        active_bone = context.active_pose_bone
         child_objs = [obj for obj in armature.children if obj.type == 'MESH']
         # 获取镜像骨骼名称
         if self.mirror:
@@ -279,6 +291,9 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
         if self.mirror and mirror_active_name:
             mirror_active_bone = armature.data.bones.get(mirror_active_name)
         # 切换到姿态模式获取选中骨骼
+        bpy.ops.object.mode_set(mode='OBJECT')
+        context.view_layer.objects.active=armature
+        armature.select_set(True)
         bpy.ops.object.mode_set(mode='POSE')
         pose_bones = context.selected_pose_bones
         print('选中',context.selected_pose_bones)
@@ -318,7 +333,14 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
         print('选中2',context.selected_editable_bones)
         # 删除骨骼
         print('mirror_active_bone',mirror_active_bone)
-        self.remove_bones(context, armature, active_bone, mirror_active_bone)
+        if self.delete:
+            self.remove_bones(context, armature, active_bone, mirror_active_bone)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in selected:
+            o.select_set(True)
+        context.view_layer.objects.active=this_obj
+        bpy.ops.object.mode_set(mode=mode_t)
         self.report({'INFO'}, '合并完成（镜像已启用）' if self.mirror else '合并完成')
         return {'FINISHED'}
 

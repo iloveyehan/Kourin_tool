@@ -629,3 +629,80 @@ class KourinApylyModiWithShapekey(bpy.types.Operator):
                         bpy.context.active_object.modifiers[modi.name].show_viewport = mod_off[modi.name]
         self.report({'INFO'}, '应用完了')
         return {'FINISHED'}
+
+import bmesh
+
+# 全局缓存，保存复制的顶点坐标
+copied_coords = []
+
+
+class MESH_OT_copy_selected_verts(bpy.types.Operator):
+    """复制当前编辑模式下选中顶点的坐标"""
+    bl_idname = "kourin.copy_selected_verts_pos"
+    bl_label = "复制选中顶点坐标"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        global copied_coords
+        copied_coords.clear()
+
+        obj = context.active_object
+        if obj is None or obj.type != "MESH":
+            self.report({'ERROR'}, "需要在网格对象上运行")
+            return {'CANCELLED'}
+
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "请在编辑模式下运行")
+            return {'CANCELLED'}
+
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+
+        for v in bm.verts:
+            if v.select:
+                copied_coords.append(v.co.copy())
+
+        self.report({'INFO'}, f"已复制 {len(copied_coords)} 个顶点坐标")
+        return {'FINISHED'}
+
+
+class OBJECT_OT_paste_to_shapekey(bpy.types.Operator):
+    """粘贴顶点坐标到当前物体的形态键选中顶点"""
+    bl_idname = "kourin.paste_to_shapekey"
+    bl_label = "粘贴到形态键"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        global copied_coords
+
+        obj = context.active_object
+        if obj is None or obj.type != "MESH":
+            self.report({'ERROR'}, "需要在网格对象上运行")
+            return {'CANCELLED'}
+
+        if not obj.data.shape_keys or not obj.active_shape_key:
+            self.report({'ERROR'}, "需要有一个激活的形态键")
+            return {'CANCELLED'}
+        mode_t=obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')  # 确保在编辑模式
+
+        mesh = obj.data
+        keyblock = obj.active_shape_key
+
+        selected_indices = [i for i, v in enumerate(mesh.vertices) if v.select]
+        if not selected_indices:
+            self.report({'ERROR'}, "需要在对象模式下有顶点被选中")
+            return {'CANCELLED'}
+
+        if len(copied_coords) != len(selected_indices):
+            self.report({'ERROR'}, f"粘贴失败: 复制了 {len(copied_coords)} 个顶点, 但当前选择了 {len(selected_indices)} 个顶点")
+            return {'CANCELLED'}
+
+        for idx, coord in zip(selected_indices, copied_coords):
+            keyblock.data[idx].co = coord
+        bpy.ops.object.mode_set(mode=mode_t)  # 确保在编辑模式
+        self.report({'INFO'}, f"已粘贴 {len(selected_indices)} 个顶点到形态键")
+        return {'FINISHED'}
+
+
+#
