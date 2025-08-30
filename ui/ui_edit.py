@@ -257,6 +257,8 @@ class EditQuickWigdet(QWidget):
         vg=bpy.context.object.vertex_groups.active
         mode_t=this_obj.mode
         selected_t=bpy.context.selected_objects
+        scene_settings = bpy.context.scene.kourin_weight_transfer_settings
+        source_object=scene_settings.source_object
         #开始
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.kourin.load_surfacedeform(file_name=gp.get().surface_defrom_name + '_fitting_surface')
@@ -290,6 +292,8 @@ class EditQuickWigdet(QWidget):
         this_obj.select_set(True)
         object_settings = this_obj.kourin_weight_transfer_settings
         object_settings.vertex_group=vg.name
+        #传权重
+        scene_settings.source_object=surface_obj
         bpy.ops.kourin.skin_weight_transfer()
         for o in temp_objs:
             o.select_set(True)
@@ -303,10 +307,12 @@ class EditQuickWigdet(QWidget):
                 sk.name=sk.name[5:]
 
         # bpy.ops.kourin.skin_weight_transfer()
+        #还原设置
         bpy.ops.object.select_all(action='DESELECT')
         for o in selected_t:
             o.select_set(True)
         bpy.context.view_layer.objects.active=this_obj
+        scene_settings.source_object=source_object
         bpy.ops.object.mode_set(mode=mode_t)
         
     @undoable
@@ -318,6 +324,8 @@ class EditQuickWigdet(QWidget):
         vg=bpy.context.object.vertex_groups.active
         mode_t=this_obj.mode
         selected_t=bpy.context.selected_objects
+        scene_settings = bpy.context.scene.kourin_weight_transfer_settings
+        source_object=scene_settings.source_object
         #开始
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.kourin.load_loose_surfacedeform(file_name=gp.get().surface_defrom_name + '_loose_surface')
@@ -351,6 +359,8 @@ class EditQuickWigdet(QWidget):
         this_obj.select_set(True)
         object_settings = this_obj.kourin_weight_transfer_settings
         object_settings.vertex_group=vg.name
+        #传权重
+        scene_settings.source_object=surface_obj
         bpy.ops.kourin.skin_weight_transfer()
         for o in temp_objs:
             o.select_set(True)
@@ -364,10 +374,12 @@ class EditQuickWigdet(QWidget):
                 sk.name=sk.name[5:]
 
         # bpy.ops.kourin.skin_weight_transfer()
+        #还原设置
         bpy.ops.object.select_all(action='DESELECT')
         for o in selected_t:
             o.select_set(True)
         bpy.context.view_layer.objects.active=this_obj
+        scene_settings.source_object=source_object
         bpy.ops.object.mode_set(mode=mode_t)
         
     def on_combo_changed(self, text):
