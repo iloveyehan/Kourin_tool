@@ -271,17 +271,20 @@ class Kourin_combine_selected_bone_weights(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return obj and obj.type=='MESH'
+        return obj and obj.type in ['MESH','ARMATURE']
     def execute(self, context):
         from .vertex_group import determine_and_convert
         
         this_obj = context.active_object
         mode_t=this_obj.mode
         selected=bpy.context.selected_objects
-        if not comfirm_one_arm(this_obj):
-            self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
-            return
-        armature=get_arm_modi_obj(this_obj).object
+        if this_obj.type=='MESH':
+            if not comfirm_one_arm(this_obj):
+                self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+                return
+            armature=get_arm_modi_obj(this_obj).object
+        else:
+            armature=this_obj
         active_bone = context.active_pose_bone
         child_objs = [obj for obj in armature.children if obj.type == 'MESH']
         # 获取镜像骨骼名称
