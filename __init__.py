@@ -22,7 +22,7 @@ bl_info = {
     "name": "Kourin_tool",
     "author": "Cupcko[649730016@qq.com]",
     "blender": (3, 5, 0),
-    "version": (1, 3, 1),
+    "version": (1, 3, 2),
     "description": "This is a template for building addons",
     "warning": "",
     "doc_url": "[documentation url]",
