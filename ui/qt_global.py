@@ -30,7 +30,13 @@ class GlobalProperty:
         self.current_obj_sk = None
         self.just_switched_obj_sk = False
         self.obj_sync_col={}
-
+        #顶点权重数检测
+        self._cached_obj_name = None
+        self._cached_indices = []
+        self._cached_positions = []
+        self._cached_over_count = 0
+        self.threshold = 4
+        self.overinfluence_point_size = 6
         #存当前物体和 上一个mesh物体
         self.last_mesh_obj = None  # 存上一个选中的 Mesh 对象
         self.last_mesh_obj_ptr = None  # 存上一个选中的 Mesh 对象

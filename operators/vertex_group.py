@@ -785,3 +785,247 @@ class PasteVertexGroupWeights(bpy.types.Operator):
                 continue
         self.report({'INFO'}, f"已粘贴 {len(cache)} 个顶点权重（累加）")
         return {'FINISHED'}
+    
+import gpu
+from gpu_extras.batch import batch_for_shader
+from mathutils import Vector
+
+# ----------------- 默认配置 -----------------
+DEFAULT_THRESHOLD = 4     # 被超过 4 根影响判定为“过多影响”（即 >4）
+DEFAULT_POINT_SIZE = 6.0
+POINT_COLOR = (1.0, 0.0, 0.0, 1.0)
+KEEP_TOP_N = 4            # 保留最强的前 N 个骨骼影响（保留用于其他操作）
+# --------------------------------------------
+
+_draw_handle = None
+
+
+
+# ---------- 帮助函数 ----------
+def get_armature_of_obj(obj: bpy.types.Object):
+    if obj is None:
+        return None
+    for mod in obj.modifiers:
+        if mod.type == 'ARMATURE' and mod.object is not None:
+            return mod.object
+    return None
+
+def compute_overinfluenced(obj: bpy.types.Object, threshold: int):
+    """
+    计算并返回 (indices_list, world_positions_list)；
+    规则：统计顶点的 vertex groups 中，名字与 armature bones 匹配且 weight>0 的数量，
+    如果数量 > threshold，则认为 over-influenced。
+    使用 evaluated mesh 获取变形后位置（尝试）。
+    """
+    indices = []
+    positions = []
+    
+    if obj is None or obj.type != 'MESH':
+        return indices, positions
+
+    arm = get_armature_of_obj(obj)
+    bone_names = set()
+    if arm and arm.type == 'ARMATURE':
+        bone_names = {b.name for b in arm.data.bones}
+
+    # vg index -> name 映射
+    vg_index_to_name = {i: vg.name for i, vg in enumerate(obj.vertex_groups)}
+
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    eval_mesh = None
+    eval_obj = None
+    try:
+        eval_obj = obj.evaluated_get(depsgraph)
+        eval_mesh = eval_obj.to_mesh()
+    except Exception:
+        eval_mesh = None
+
+    mesh_src = eval_mesh if eval_mesh is not None else obj.data
+    mat_world = obj.matrix_world
+
+    # 遍历顶点，使用原始 obj.data.vertices 的 groups 权重判断影响
+    for vidx, v in enumerate(mesh_src.vertices):
+        # prefer original vertex group weight entries
+        try:
+            orig_groups = obj.data.vertices[vidx].groups
+        except Exception:
+            orig_groups = v.groups
+
+        cnt = 0
+        for g in orig_groups:
+            g_index = g.group
+            w = getattr(g, "weight", 0.0)
+            if w <= 0.0:
+                continue
+            name = vg_index_to_name.get(g_index)
+            if name and name in bone_names:
+                cnt += 1
+
+        if cnt > threshold:
+            indices.append(vidx)
+            positions.append(mat_world @ v.co)
+
+    # 清理 eval mesh（如果有）
+    if eval_mesh is not None and eval_obj is not None:
+        try:
+            eval_obj.to_mesh_clear()
+        except Exception:
+            try:
+                bpy.data.meshes.remove(eval_mesh)
+            except Exception:
+                pass
+
+    return indices, positions
+
+# ---------- GPU 绘制回调（**不再计算**，只绘制缓存） ----------
+def draw_callback(_self, _context):
+    """
+    绘制使用缓存的 positions；不会进行任何计算。
+    """
+
+    from ..ui.qt_global import GlobalProperty as GP
+    gp=GP.get()
+    if not gp._cached_positions:
+        return
+
+    # 仍从场景读取点大小（方便用户调试）
+    point_size = gp.overinfluence_point_size
+
+    shader = gpu.shader.from_builtin('POINT_UNIFORM_COLOR')
+    # 将 Vector 转为 tuple（若已是 tuple 则不变）
+    coords = [tuple(p) for p in gp._cached_positions]
+    batch = batch_for_shader(shader, 'POINTS', {"pos": coords})
+
+    gpu.state.depth_test_set('LESS_EQUAL')
+    gpu.state.point_size_set(point_size)
+
+    shader.bind()
+    shader.uniform_float("color", POINT_COLOR)
+    batch.draw(shader)
+
+# ---------- Operators ----------
+class VIEW3D_OT_toggle_draw_overinfluence(bpy.types.Operator):
+    """Toggle drawing of cached over-influenced verts (drawing only, no compute)"""
+    bl_idname = "kourin.toggle_draw_overinfluence"
+    bl_label = "Toggle Draw Over-Influenced"
+
+    def execute(self, context):
+        global _draw_handle
+        
+        # toggle off
+        if _draw_handle is not None:
+            try:
+                bpy.types.SpaceView3D.draw_handler_remove(_draw_handle, 'WINDOW')
+            except Exception:
+                pass
+            _draw_handle = None
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+            self.report({'INFO'}, "Over-influence drawing stopped.")
+            return {'FINISHED'}
+
+        # toggle on -> add handler (但不做计算)
+        _draw_handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (None, None), 'WINDOW', 'POST_VIEW')
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+
+        self.report({'INFO'}, "Over-influence drawing started (uses cached results).")
+        return {'FINISHED'}
+class VIEW3D_OT_recompute_overinfluence(bpy.types.Operator):
+    """Recompute over-influenced verts for the active mesh object (only when clicked)"""
+    bl_idname = "kourin.recompute_overinfluence"
+    bl_label = "Recompute Over-Influenced Now"
+
+    def execute(self, context):
+        from ..ui.qt_global import GlobalProperty as GP
+        gp=GP.get()
+        obj = context.object
+        if obj is None or obj.type != 'MESH':
+            self.report({'ERROR'}, "Select a mesh object in Object Mode to recompute.")
+            return {'CANCELLED'}
+
+        threshold = gp.threshold
+        indices, positions = compute_overinfluenced(obj, threshold)
+
+        gp._cached_obj_name = obj.name
+        # gp._cached_indices = indices
+        gp._cached_positions = positions
+        gp._cached_over_count = len(indices)
+
+        # 刷新 3D 视图以立即看到效果
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
+
+        self.report({'INFO'}, f"Recomputed: found {gp._cached_over_count} over-influenced verts on '{gp._cached_obj_name}'.")
+        return {'FINISHED'}
+class VIEW3D_OT_remove_extra_weights(bpy.types.Operator):
+    """Remove weights beyond top-N strongest deform bone groups for over-influenced verts"""
+    bl_idname = "kourin.remove_extra_weights"
+    bl_label = "Remove Extra Weights (keep top 4)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        obj = context.object
+        if obj is None or obj.type != 'MESH':
+            self.report({'ERROR'}, "Select a mesh object in Object Mode.")
+            return {'CANCELLED'}
+
+        import bpy
+
+        def limit_vertex_weights_to_top4(obj):
+            """只保留每个顶点权重中最大的4个"""
+            if obj.type != 'MESH':
+                print(f"跳过 {obj.name}，因为不是网格对象")
+                return
+
+            # 进入对象的顶点数据
+            mesh = obj.data
+            vgroups = obj.vertex_groups
+
+            # 确保是 Object 模式
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            print(f"开始处理对象: {obj.name}")
+  
+            for v in mesh.vertices:
+                weights = []
+                for g in v.groups:
+                    group = vgroups[g.group]
+                    weights.append((group.index, g.weight))
+
+                # 如果权重数量大于4，则只保留最大的4个
+                if len(weights) > 4:
+                    # 按权重从大到小排序
+                    weights.sort(key=lambda x: x[1], reverse=True)
+                    keep = {idx for idx, w in weights[:4]}
+                    remove = [idx for idx, w in weights[4:]]
+
+                    # 删除多余的顶点组权重
+                    for g in v.groups:
+                        if g.group in remove:
+                            vgroups[g.group].remove([v.index])
+
+            print("完成：每个顶点现在只保留最大的4个权重。")
+
+
+        limit_vertex_weights_to_top4(obj)
+
+
+        # update mesh data
+        try:
+            obj.data.update()
+        except Exception:
+            pass
+
+        # if drawing active, force redraw (draw callback will recompute positions)
+        global _draw_handle
+        if _draw_handle is not None:
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+
+        self.report({'INFO'}, f"Removed.")
+        return {'FINISHED'}

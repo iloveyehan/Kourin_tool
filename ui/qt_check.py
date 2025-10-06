@@ -1,12 +1,221 @@
 from functools import partial
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit,QLabel,QPushButton, QSpinBox, QDoubleSpinBox, QGroupBox, QMessageBox
+from PySide6.QtCore import Qt, QTimer
 import re
 import bpy
-
+import sys
+import traceback
 from .qt_toastwindow import ToastWindow
 
 from .ui_widgets import Button
 from ..utils.utils import undoable
+try:
+    import bpy
+    IN_BLENDER = True
+except Exception:
+    bpy = None
+    IN_BLENDER = False
+
+# Simple state to hold cached info (mimics Blender-side cached values)
+class AppState:
+    def __init__(self):
+        self.threshold = 4
+        self.point_size = 6.0
+        self.cached_obj_name = None
+        self.cached_count = 0
+        self.drawing_enabled = False
+
+STATE = AppState()
+
+
+class OverInfluenceWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        # self.setWindowTitle("Over-Influence (On-Demand) — PySide6")
+        # self.setMinimumWidth(360)
+        self._build_ui()
+        self._connect_signals()
+
+        # If in Blender, try to initialize UI from scene props if present
+ 
+
+    def _build_ui(self):
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+        # central = QWidget()
+        # self.setLayout(central)
+        main_l = QVBoxLayout()
+        # central.setLayout(main_l)
+
+        # Parameters group
+        params_box = QGroupBox("参数")
+        params_l = QHBoxLayout()
+        params_box.setLayout(params_l)
+
+        # Threshold
+        thr_layout = QVBoxLayout()
+        thr_label = QLabel("点数")
+        thr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin_threshold = QSpinBox()
+        self.spin_threshold.setRange(0, 64)
+        self.spin_threshold.setValue(gp.threshold)
+        thr_layout.addWidget(thr_label)
+        thr_layout.addWidget(self.spin_threshold)
+
+        # Point size
+        ps_layout = QVBoxLayout()
+        ps_label = QLabel("绘制大小")
+        ps_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin_point = QDoubleSpinBox()
+        self.spin_point.setRange(1.0, 50.0)
+        self.spin_point.setSingleStep(0.5)
+        self.spin_point.setValue(gp.overinfluence_point_size)
+        ps_layout.addWidget(ps_label)
+        ps_layout.addWidget(self.spin_point)
+
+        params_l.addLayout(thr_layout)
+        params_l.addLayout(ps_layout)
+
+        main_l.addWidget(params_box)
+
+        # Buttons row
+        btn_row = QHBoxLayout()
+        self.btn_recompute = Button("计算")
+        self.btn_recompute.setProperty('bt_name', 'recompute')
+        self.btn_toggle = Button("显示切换")
+        self.btn_toggle.setProperty('bt_name', 'toggle')
+        self.btn_remove = Button("删除")
+        self.btn_remove.setProperty('bt_name', 'remove')
+        btn_row.addWidget(self.btn_recompute)
+        btn_row.addWidget(self.btn_toggle)
+        btn_row.addWidget(self.btn_remove)
+        main_l.addLayout(btn_row)
+
+        # Cached info display
+        info_box = QGroupBox("缓存")
+        info_l = QVBoxLayout()
+        info_box.setLayout(info_l)
+
+        self.lbl_cached_obj = QLabel("当前物体: —")
+        self.lbl_cached_count = QLabel("数量: 0")
+
+        info_l.addWidget(self.lbl_cached_obj)
+        info_l.addWidget(self.lbl_cached_count)
+
+        main_l.addWidget(info_box)
+
+        # Status message
+        self.lbl_status = QLabel("")
+        main_l.addWidget(self.lbl_status)
+
+        # Spacer
+        main_l.addStretch(1)
+        self.setLayout(main_l)
+    def _connect_signals(self):
+        self.spin_threshold.valueChanged.connect(self._on_threshold_changed)
+        self.spin_point.valueChanged.connect(self._on_point_size_changed)
+        self.btn_recompute.clicked.connect(self.button_handler)
+        self.btn_toggle.clicked.connect(self.button_handler)
+        self.btn_remove.clicked.connect(self.button_handler)
+
+    def _on_threshold_changed(self, val):
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+        gp.threshold = val
+
+
+    def _on_point_size_changed(self, val):
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+        gp.overinfluence_point_size = val
+
+
+
+    def _on_recompute_clicked(self):
+        """
+        Called when user clicks Recompute Now.
+        If running inside Blender and operator exists, call it.
+        Otherwise simulate with demo values.
+        """
+
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+
+        try:
+            # Try calling the operator you registered in Blender
+            op = bpy.ops.kourin.recompute_overinfluence()
+
+            self._refresh_cached_labels()
+
+        except Exception:
+            tb = traceback.format_exc()
+
+            print(tb)
+            QMessageBox.warning(self, "Blender call failed",
+                                "Calling `bpy.ops.view3d.recompute_overinfluence()` failed.\n"
+                                "Make sure the operator is registered and this script is running inside Blender.")
+
+
+    def _on_toggle_clicked(self):
+        """
+        Toggle drawing on Blender side if possible; otherwise toggle demo flag.
+        """
+  
+        try:
+            bpy.ops.kourin.toggle_draw_overinfluence()
+    
+        except Exception:
+            tb = traceback.format_exc()
+            print(tb)
+            QMessageBox.warning(self, "Blender call failed",
+                                "Calling `bpy.ops.view3d.toggle_draw_overinfluence()` failed.\n"
+                                "Make sure the operator is registered and this script is running inside Blender.")
+       
+
+        self._update_toggle_text()
+    def _on_remove_clicked(self):
+        """
+        Toggle drawing on Blender side if possible; otherwise toggle demo flag.
+        """
+  
+        try:
+            bpy.ops.kourin.remove_extra_weights()
+    
+        except Exception:
+            tb = traceback.format_exc()
+            print(tb)
+            QMessageBox.warning(self, "Blender call failed",
+                                "Calling `bpy.ops.view3d.toggle_draw_overinfluence()` failed.\n"
+                                "Make sure the operator is registered and this script is running inside Blender.")
+       
+
+        self._update_toggle_text()
+
+    def _update_toggle_text(self):
+        self.btn_toggle.setText("绘制:开" if STATE.drawing_enabled else "绘制:关")
+
+    def _refresh_cached_labels(self):
+        from .qt_global import GlobalProperty
+        gp=GlobalProperty.get()
+        self.lbl_cached_obj.setText(f"物体: {gp._cached_obj_name if gp._cached_obj_name else '—'}")
+        self.lbl_cached_count.setText(f"顶点: {gp._cached_over_count}")
+
+    def button_handler(self):
+        self.msg=self.tr('操作完成')
+        name = self.sender().property('bt_name')
+        func = getattr(self, f'_on_{name}_clicked')
+        # 定时注册以确保在主线程执行
+        def wrapped_func():
+            func()  # 原函数执行
+            # 然后注册 toast 显示（下一帧）
+            def show_toast():
+                toast = ToastWindow(self.msg, parent=self)
+                toast.show_at_center_of()
+                return None  # 一次性定时器
+            bpy.app.timers.register(show_toast)
+            return None  # 一次性定时器
+
+        bpy.app.timers.register(wrapped_func)
 
 class CheckWidget(QWidget):
     def __init__(self,param):
@@ -36,6 +245,9 @@ class CheckWidget(QWidget):
         btn_layout.addWidget(clean_btn)
 
         btn_layout.addStretch()
+        over_influence=OverInfluenceWindow()
+        layout.addWidget(over_influence)
+
         layout.addLayout(btn_layout)
 
         # 结果显示区域
