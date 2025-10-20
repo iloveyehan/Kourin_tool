@@ -449,18 +449,19 @@ class EditQuickWigdet(QWidget):
             self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
             return
         modi=get_arm_modi_obj(obj)
-        
+        print(1)
 
         settings = bpy.context.scene.kourin_weight_transfer_settings
         if not settings.source_object:
             self.msg=self.tr('先设置权重来源')
             print(self.msg)
             return
-        
+        print(2)
         mode_t=obj.mode
         # pose_t=bpy.context.object.data.pose_position = 'POSE'
 
         bpy.ops.kourin.vg_asign_new_group()
+        print(3)
         vg=bpy.context.object.vertex_groups.active
         object_settings = obj.kourin_weight_transfer_settings
         object_settings.vertex_group=vg.name

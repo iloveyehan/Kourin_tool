@@ -112,9 +112,9 @@ full_skeleton_dict={
     'Neck':['Neck','neck'],
     'Shoulder_L':['Shoulder_L','shoulder_l','leftshoulder','left shoulder','Shoulder.L','Shoulder.l','Left shoulder'],
     'Upperarm_L':['Upper_Arm_L','Upper_arm_L','Left arm','Upperarm_L','Upperarm_l','Upperarm.L','Upperarm.l','UpperArm_L','UpperArm_l','UpperArm.L','UpperArm.l','Upper_arm.L','Upper_arm.l'],
-    'UpperArm_twist_L':['Upper_arm_Twist.L','UpperArmTwist_L','Upper_arm_Twist_L','UpperArm.Support.L','XC_ArmTwist_L','Upper_arm_support.L','UpperArm_twist_L','Elbow_support.L','Upper_twist.L','Arm_twist.L','Arm_twist.l'],
+    'UpperArm_twist_L':['UpperArm_Twist_L','Upper_arm_Twist.L','UpperArmTwist_L','Upper_arm_Twist_L','UpperArm.Support.L','XC_ArmTwist_L','Upper_arm_support.L','UpperArm_twist_L','Elbow_support.L','Upper_twist.L','Arm_twist.L','Arm_twist.l'],
     'Lowerarm_L':['Lower_Arm_L','Lower_arm_L','Left elbow','Lowerarm_L','Lowerarm_l','Lowerarm.L','Lowerarm.l','LowerArm_L','LowerArm_l','LowerArm.L','LowerArm.l','Lower_arm.L','Lower_arm.l'],
-    'LowerArm_twist_L':['Lower_arm_Twist.L','LowerArmTwist_L','Lower_arm_Twist_L','LowerArm.Support.L','XC_WristTwist_L','Lower_arm_support.L','LowerArm_twist_L','Z_LowerArm_twist_L','Wrist_support.L','Lower_twist.L'],
+    'LowerArm_twist_L':['LowerArm_Twist_L','Lower_arm_Twist.L','LowerArmTwist_L','Lower_arm_Twist_L','LowerArm.Support.L','XC_WristTwist_L','Lower_arm_support.L','LowerArm_twist_L','Z_LowerArm_twist_L','Wrist_support.L','Lower_twist.L'],
     'Hand_L':['Hand_L','Hand_l','Hand.L','Hand.l','Left Hand','Wrist_L','Left wrist'],
     #大拇指
     'Thumb Proximal_L':['Thumb1_L','Thumb_Proximal_L','Thumb Proximal_L','ThumbProximal.L','Thunb1_L','ThumbProximal_L','Thumb Proximal.L',],
@@ -151,9 +151,9 @@ full_skeleton_dict={
 
     'Shoulder_R':['Shoulder_R','shoulder_r','rightshoulder','right shoulder','Shoulder.R','Shoulder.r','Right shoulder'],
     'Upperarm_R':['Upper_Arm_R','Upper_arm_R','Right arm','Upperarm_R','Upperarm_r','Upperarm.R','Upperarm.r','UpperArm_R','UpperArm_r','UpperArm.R','UpperArm.r','Upper_arm.R','Upper_arm.r'],
-    'UpperArm_twist_R':['Upper_arm_Twist.R','UpperArmTwist_R','Upper_arm_Twist_R','UpperArm.Support.R','XC_ArmTwist_R','Upper_arm_support.R','UpperArm_twist_R','Elbow_support.R','Upper_twist.R','Arm_twist.R','Arm_twist.r'],
+    'UpperArm_twist_R':['UpperArm_Twist_R','Upper_arm_Twist.R','UpperArmTwist_R','Upper_arm_Twist_R','UpperArm.Support.R','XC_ArmTwist_R','Upper_arm_support.R','UpperArm_twist_R','Elbow_support.R','Upper_twist.R','Arm_twist.R','Arm_twist.r'],
     'Lowerarm_R':['Lower_Arm_R','Lower_arm_R','Right elbow','Lowerarm_R','Lowerarm_r','Lowerarm.R','Lowerarm.r','LowerArm_R','LowerArm_r','LowerArm.R','LowerArm.r','Lower_arm.R','Lower_arm.r'],
-    'LowerArm_twist_R':['Lower_arm_Twist.R','LowerArmTwist_R','Lower_arm_Twist_R','LowerArm.Support.R','XC_WristTwist_R','Lower_arm_support.R','LowerArm_twist_R','Z_RowerArm_twist_R','Wrist_support.R','Lower_twist.R'],
+    'LowerArm_twist_R':['LowerArm_Twist_R','Lower_arm_Twist.R','LowerArmTwist_R','Lower_arm_Twist_R','LowerArm.Support.R','XC_WristTwist_R','Lower_arm_support.R','LowerArm_twist_R','Z_RowerArm_twist_R','Wrist_support.R','Lower_twist.R'],
     'Hand_R':['Hand_R','Hand_r','Hand.R','Hand.r','Right Hand','Wrist_R','Right wrist'],
     #大拇指
     'Thumb Proximal_R':['Thumb1_R','Thumb Proximal_R','ThumbProximal.R','Thunb1_R','ThumbProximal_R','Thumb Proximal.R','Thumb_Proximal_R'],
