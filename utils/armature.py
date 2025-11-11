@@ -117,9 +117,9 @@ full_skeleton_dict={
     'LowerArm_twist_L':['LowerArm_Twist_L','Lower_arm_Twist.L','LowerArmTwist_L','Lower_arm_Twist_L','LowerArm.Support.L','XC_WristTwist_L','Lower_arm_support.L','LowerArm_twist_L','Z_LowerArm_twist_L','Wrist_support.L','Lower_twist.L'],
     'Hand_L':['Hand_L','Hand_l','Hand.L','Hand.l','Left Hand','Wrist_L','Left wrist'],
     #大拇指
-    'Thumb Proximal_L':['Thumb1_L','Thumb_Proximal_L','Thumb Proximal_L','ThumbProximal.L','Thunb1_L','ThumbProximal_L','Thumb Proximal.L',],
-    'Thumb Intermediate_L':['Thumb2_L','Thumb_Intermediate_L','Thumb Intermediate_L','ThumbIntermediate.L','Thunb2_L','ThumbIntermediate_L','Thumb Intermediate.L'],
-    'Thumb Distal_L':['Thumb3_L','Thumb_Distal_L','Thumb Distal_L','ThumbDistal.L','Thunb3_L','ThumbDistal_L','Thumb Distal.L',],
+    'Thumb Proximal_L':['Thumb1Dummy_L','Thumb1_L','Thumb_Proximal_L','Thumb Proximal_L','ThumbProximal.L','Thunb1_L','ThumbProximal_L','Thumb Proximal.L',],
+    'Thumb Intermediate_L':['Thumb2Dummy_L','Thumb2_L','Thumb_Intermediate_L','Thumb Intermediate_L','ThumbIntermediate.L','Thunb2_L','ThumbIntermediate_L','Thumb Intermediate.L'],
+    'Thumb Distal_L':['Thumb3Dummy_L','Thumb3_L','Thumb_Distal_L','Thumb Distal_L','ThumbDistal.L','Thunb3_L','ThumbDistal_L','Thumb Distal.L',],
 
     'Index Proximal_L':['Index1_L','Index_Proximal_L','Index Proximal_L','IndexProximal.L','Index1_L','Index Proximal.L','IndexInterProxima.L','IndexProximal_L','IndexProximal_L'],
     'Index Intermediate_L':['Index2_L','Index_Intermediate_L','Index Intermediate_L','IndexIntermediate.L','Index2_L','Index Intermediate.L','IndexIntermediate_L'],
@@ -156,9 +156,9 @@ full_skeleton_dict={
     'LowerArm_twist_R':['LowerArm_Twist_R','Lower_arm_Twist.R','LowerArmTwist_R','Lower_arm_Twist_R','LowerArm.Support.R','XC_WristTwist_R','Lower_arm_support.R','LowerArm_twist_R','Z_RowerArm_twist_R','Wrist_support.R','Lower_twist.R'],
     'Hand_R':['Hand_R','Hand_r','Hand.R','Hand.r','Right Hand','Wrist_R','Right wrist'],
     #大拇指
-    'Thumb Proximal_R':['Thumb1_R','Thumb Proximal_R','ThumbProximal.R','Thunb1_R','ThumbProximal_R','Thumb Proximal.R','Thumb_Proximal_R'],
-    'Thumb Intermediate_R':['Thumb2_R','Thumb Intermediate_R','ThumbIntermediate.R','Thunb2_R','ThumbIntermediate_R','Thumb Intermediate.R','Thumb_Intermediate_R'],
-    'Thumb Distal_R':['Thumb3_R','Thumb Distal_R','ThumbDistal.R','Thunb3_R','ThumbDistal_R','Thumb Distal.R','Thumb_Distal_R'],
+    'Thumb Proximal_R':['Thumb1Dummy_R','Thumb1_R','Thumb Proximal_R','ThumbProximal.R','Thunb1_R','ThumbProximal_R','Thumb Proximal.R','Thumb_Proximal_R'],
+    'Thumb Intermediate_R':['Thumb2Dummy_R','Thumb2_R','Thumb Intermediate_R','ThumbIntermediate.R','Thunb2_R','ThumbIntermediate_R','Thumb Intermediate.R','Thumb_Intermediate_R'],
+    'Thumb Distal_R':['Thumb3Dummy_R','Thumb3_R','Thumb Distal_R','ThumbDistal.R','Thunb3_R','ThumbDistal_R','Thumb Distal.R','Thumb_Distal_R'],
 
     'Index Proximal_R':['Index Proximal_R','IndexProximal.R','Index1_R','Index Proximal.R','IndexInterProxima.R','IndexProximal_R','IndexProximal_R','Index_Proximal_R'],
     'Index Intermediate_R':['Index Intermediate_R','IndexIntermediate.R','Index2_R','Index Intermediate.R','IndexIntermediate_R','Index_Intermediate_R'],

@@ -962,10 +962,17 @@ class VIEW3D_OT_recompute_overinfluence(bpy.types.Operator):
         self.report({'INFO'}, f"Recomputed: found {gp._cached_over_count} over-influenced verts on '{gp._cached_obj_name}'.")
         return {'FINISHED'}
 class VIEW3D_OT_remove_extra_weights(bpy.types.Operator):
-    """Remove weights beyond top-N strongest deform bone groups for over-influenced verts"""
+    """Remove weights beyond top-N strongest *deform* bone groups for over-influenced verts"""
     bl_idname = "kourin.remove_extra_weights"
-    bl_label = "Remove Extra Weights (keep top 4)"
+    bl_label = "Remove Extra Weights (keep top 4 deform weights)"
     bl_options = {'REGISTER', 'UNDO'}
+
+    top_n: bpy.props.IntProperty(
+        name="Keep Top N",
+        default=4,
+        min=1,
+        description="Keep the top N deform bone weights per vertex"
+    )
 
     def execute(self, context):
         obj = context.object
@@ -973,59 +980,71 @@ class VIEW3D_OT_remove_extra_weights(bpy.types.Operator):
             self.report({'ERROR'}, "Select a mesh object in Object Mode.")
             return {'CANCELLED'}
 
-        import bpy
+        mesh = obj.data
+        vgroups = obj.vertex_groups
 
-        def limit_vertex_weights_to_top4(obj):
-            """只保留每个顶点权重中最大的4个"""
-            if obj.type != 'MESH':
-                print(f"跳过 {obj.name}，因为不是网格对象")
-                return
+        # 找到关联的 Armature（第一个有 object 的 ARMATURE modifier）
+        arm_obj = None
+        for mod in obj.modifiers:
+            if mod.type == 'ARMATURE' and getattr(mod, "object", None) is not None:
+                arm_obj = mod.object
+                break
 
-            # 进入对象的顶点数据
-            mesh = obj.data
-            vgroups = obj.vertex_groups
+        # 收集 deform 骨骼的名字集合（若找不到 armature，则设为 None 表示不做筛选）
+        deform_bone_names = None
+        if arm_obj and arm_obj.type == 'ARMATURE':
+            deform_bone_names = {b.name for b in arm_obj.data.bones if getattr(b, "use_deform", True)}
+            # 若没有任何 deform bone，则退回为 None（即不做筛选）
+            if not deform_bone_names:
+                deform_bone_names = None
 
-            # 确保是 Object 模式
-            bpy.ops.object.mode_set(mode='OBJECT')
+        # 确保处于 Object 模式
+        try:
+            if obj.mode != 'OBJECT':
+                bpy.ops.object.mode_set(mode='OBJECT')
+        except Exception:
+            pass
 
-            print(f"开始处理对象: {obj.name}")
-  
-            for v in mesh.vertices:
-                weights = []
-                for g in v.groups:
-                    group = vgroups[g.group]
-                    weights.append((group.index, g.weight))
+        top_n = max(1, int(self.top_n))
+        changed_count = 0
+        vert_count = 0
 
-                # 如果权重数量大于4，则只保留最大的4个
-                if len(weights) > 4:
-                    # 按权重从大到小排序
-                    weights.sort(key=lambda x: x[1], reverse=True)
-                    keep = {idx for idx, w in weights[:4]}
-                    remove = [idx for idx, w in weights[4:]]
+        for v in mesh.vertices:
+            vert_count += 1
+            # 收集当前顶点与 vertex_groups 的权重信息
+            # 注意：v.groups 是一个 read-only 的集合，需要用 list() 避免迭代时被修改问题
+            groups_info = [(g.group, vgroups[g.group].name, g.weight) for g in list(v.groups)]
+            if not groups_info:
+                continue
 
-                    # 删除多余的顶点组权重
-                    for g in v.groups:
-                        if g.group in remove:
+            # 从 groups_info 中筛选出 "deform" 的那些项（若 deform_bone_names 是 None 则把所有都视为可候选）
+            deform_weights = []
+            for idx, name, w in groups_info:
+                if deform_bone_names is None or name in deform_bone_names:
+                    deform_weights.append((idx, w))
+
+            # 如果 deform 权重数量多于 top_n，则需要删除排名靠后的 deform 权重（仅删除 deform 类别）
+            if len(deform_weights) > top_n:
+                # 按权重从大到小排序
+                deform_weights.sort(key=lambda x: x[1], reverse=True)
+                keep_idxs = {idx for idx, _ in deform_weights[:top_n]}
+                remove_idxs = {idx for idx, _ in deform_weights[top_n:]}
+
+                # 删除这些 deform 的多余权重（保持非deform组不变）
+                for g in list(v.groups):
+                    if g.group in remove_idxs:
+                        try:
                             vgroups[g.group].remove([v.index])
+                            changed_count += 1
+                        except Exception:
+                            # 若删除失败，忽略（继续处理其它顶点）
+                            pass
 
-            print("完成：每个顶点现在只保留最大的4个权重。")
-
-
-        limit_vertex_weights_to_top4(obj)
-
-
-        # update mesh data
+        # 更新 mesh
         try:
             obj.data.update()
         except Exception:
             pass
 
-        # if drawing active, force redraw (draw callback will recompute positions)
-        global _draw_handle
-        if _draw_handle is not None:
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    area.tag_redraw()
-
-        self.report({'INFO'}, f"Removed.")
+        self.report({'INFO'}, f"处理完成：顶点数 {vert_count}，删除权重条目约 {changed_count}（近似）。")
         return {'FINISHED'}
