@@ -8,7 +8,7 @@ from pathlib import Path
 
 # from .operators import origin
 import bpy
-from bpy_types import Operator
+from bpy.types import Operator
 
 
 from .utils.registration import register_keymaps, unregister_keymaps,is_pyside6_installed

@@ -29,14 +29,28 @@ def pose_to_reset(armature):
         scale=Vector((1.0, 1.0, 1.0))
         location=Vector((0.0, 0.0, 0.0))
         #有变化的顶点组缓存
-        vg_buf=[]
+        # vg_buf=[]
+        # for b in bpy.context.object.pose.bones:
+        #     if rotate!=b.rotation_quaternion or scale!=b.scale or location!=b.location:
+        #         vg_buf.append(b.name)
+        vg_set = set()
         for b in bpy.context.object.pose.bones:
-            if rotate!=b.rotation_quaternion or scale!=b.scale or location!=b.location:
-                vg_buf.append(b.name)
+            if rotate != b.rotation_quaternion or scale != b.scale or location != b.location:
+                # 把自身加入
+                vg_set.add(b.name)
+                # 递归/栈遍历所有子孙
+                stack = [b]
+                while stack:
+                    pb = stack.pop()
+                    # pb.children 是 PoseBone 的子骨骼列表
+                    for child in pb.children:
+                        if child.name not in vg_set:
+                            vg_set.add(child.name)
+                            stack.append(child)
         #物体缓存,待处理物体
         objs=[]
         for o in bpy.context.scene.objects:
-            for vg in vg_buf:
+            for vg in vg_set:
                 if vg in o.vertex_groups:
                     objs.append(o)
                     break
@@ -77,13 +91,21 @@ def pose_to_reset(armature):
                     o.modifiers[modi.name].show_viewport = False
             if mod_target is not None:
                 mod_temp.remove(mod_target)
+            #如果只有basis 给他应用掉
+            if o.data.shape_keys:
+                if len(o.data.shape_keys.key_blocks)==1:
+                    #只有basis
+                    sk_array=None
+                elif len(o.data.shape_keys.key_blocks)>1:
+                    # 生成meshdata
+                    apply_single = MeshData(o, deformed=True)
+                    # 生成形态键坐标组,形态键值 清单
+                    sk_array = apply_single.get_shape_keys_vert_pos()
+                    sk_values = apply_single.store_shape_keys_name_value()
+            else:
+                #没有形态键
+                sk_array=None
             
-            # 生成meshdata
-            apply_single = MeshData(o, deformed=True)
-
-            # 生成形态键坐标组,形态键值 清单
-            sk_array = apply_single.get_shape_keys_vert_pos()
-            sk_values = apply_single.store_shape_keys_name_value()
             
             # 删除形态键 应用修改器
             with bpy.context.temp_override(**override):
