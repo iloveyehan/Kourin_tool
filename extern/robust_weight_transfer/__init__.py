@@ -1,7 +1,7 @@
 # bl_info = {
 #     "name": "Robust Weight Transfer",
 #     "author": "sentfromspacevr",
-#     "version": (1, 1, 5),
+#     "version": (1, 1, 6),
 #     "blender": (2, 93, 0),
 #     "doc_url": "https://jinxxy.com/SentFromSpaceVR/robust-weight-transfer",
 #     "location": "View3D > Sidebar > SENT Tab",
@@ -11,40 +11,20 @@
 import sys
 import os
 
-libs_path = os.path.join(os.path.dirname(__file__), 'deps')
-if libs_path not in sys.path:
-    sys.path.append(libs_path)
-
 import bpy
 import bmesh
 import numpy as np
-import webbrowser
 import math
-import importlib
-import subprocess
-from ...ui.qt_global import GlobalProperty as G_pro
+
+# from ...imgui_setup.imgui_global import GlobalImgui as G_pro
 
 import bpy.utils.previews
+from .weighttransfer import find_matches_closest_surface,inpaint
+from . import util
 
-
-DEPENDENCIES = ["robust_laplacian", "igl", "scipy"]
-missing_deps = []
-for module in DEPENDENCIES:
-    try:
-        importlib.import_module(module)
-    except ImportError:
-        if module == "igl":
-            missing_deps.append("libigl==2.5.1")
-        else:
-            missing_deps.append(module)
-
-installed_deps = False
-
-if not missing_deps:
-    import igl
-    from .weighttransfer import find_matches_closest_surface, inpaint, limit_mask, smooth_weigths
-    from . import util
-
+# sys.path.append(r'G:\\work\\001Blender\\blender_init\\addons\\a_imgui\\robust_laplacian\\robust_laplacian\\build\\Release')
+from . import robust
+# import robust
 
 class KourinRobustWeightTransfer(bpy.types.Operator):
     """Transfer Skin Weights Robust"""
@@ -56,8 +36,8 @@ class KourinRobustWeightTransfer(bpy.types.Operator):
     def poll(cls, context: bpy.types.Context) -> bool:
         if context.mode != 'OBJECT' and context.mode != 'PAINT_WEIGHT': return False
         
-        scene_settings: KourinSceneSettingsGroup = context.scene.kourin_weight_transfer_settings
-        if not scene_settings.source_object: return False
+        scene_settings = context.scene.kourin_weight_transfer_settings
+        if not scene_settings.source_object: return False   
         if not scene_settings.apply_to_selected and scene_settings.source_object == context.active_object: return False
         if scene_settings.group_selection == 'DEFORM_POSE_BONES':
             armature_mods = [mod for mod in scene_settings.source_object.modifiers if mod.type == "ARMATURE"]
@@ -77,7 +57,7 @@ class KourinRobustWeightTransfer(bpy.types.Operator):
         
         if not scene_settings.apply_to_selected:
             obj = target_objs[0]
-            object_settings: KourinObjectSettingsGroup = obj.kourin_weight_transfer_settings
+            object_settings=obj.kourin_weight_transfer_settings
             mask = object_settings.vertex_group
             if len(mask) > 0 and mask not in obj.vertex_groups: return False
             inpaint = object_settings.inpaint_group
@@ -86,7 +66,8 @@ class KourinRobustWeightTransfer(bpy.types.Operator):
 
 
     def execute(self, context: bpy.types.Context):
-        scene_settings: KourinSceneSettingsGroup = context.scene.kourin_weight_transfer_settings
+
+        scene_settings = context.scene.kourin_weight_transfer_settings
         
         source_obj: bpy.types.Object = scene_settings.source_object
         if source_obj.type != 'MESH':
@@ -107,8 +88,10 @@ class KourinRobustWeightTransfer(bpy.types.Operator):
         deform_only = scene_settings.group_selection == 'DEFORM_POSE_BONES'
         is_deform = [util.is_vertex_group_deform_bone(source_obj, g.name) for g in source_obj.vertex_groups]
         source_weights = util.get_groups_arr(source_obj, is_deform if deform_only else None) # (num_verts, )
+        
+        # from .util import smooth_weights,inpaint
         for obj in target_objs:
-            object_settings: KourinObjectSettingsGroup = obj.kourin_weight_transfer_settings
+            object_settings = obj.kourin_weight_transfer_settings
             verts, triangles, normals = util.get_obj_arrs_world(obj.evaluated_get(depsgraph) if scene_settings.use_deformed_target else obj)
             matched_verts, weights = find_matches_closest_surface(source_verts, source_triangles, source_normals, verts, normals, source_weights, scene_settings.max_distance**2, math.degrees(scene_settings.max_normal_angle_difference), scene_settings.flip_vertex_normal)
             if not scene_settings.apply_to_selected:
@@ -125,21 +108,28 @@ class KourinRobustWeightTransfer(bpy.types.Operator):
                 if not res:
                     self.report({'ERROR'}, f'{obj.name} has too many vertex colors. Delete one or deactive Visualize Rejected Weights.')
                     return {'CANCELLED'}
-
-                
+            
+     
             result, weights = inpaint(verts, triangles, weights, matched_verts, scene_settings.inpaint_mode == 'POINT')
+       
             if not result:
-                self.report({'ERROR'}, f'Failed weight inpainting on {obj.name}: This usually happens on loose parts, where vertices are not finding a match on the source mesh. Use Select Rejected Loose Parts to solve the issue.')
+                self.report({'ERROR'}, f'Failed weight inpainting on {obj.name} : This usually happens on loose parts, where vertices are not finding a match on the source mesh. Use Select Rejected Loose Parts to solve the issue.')
                 return {'CANCELLED'}
             
             adj_mat = util.get_mesh_adjacency_matrix_sparse(obj.data, include_self=True)
             if scene_settings.smoothing_enable:
                 adj_list = util.get_mesh_adjacency_list(obj.data)
-                weights = smooth_weigths(verts, weights, matched_verts, adj_mat, adj_list, scene_settings.smoothing_repeat, scene_settings.smoothing_factor, scene_settings.max_distance)
-            
+                # weights = weights.astype(np.float64)
+                weights = robust.smooth_weights(verts, weights, matched_verts, adj_mat, adj_list, scene_settings.smoothing_repeat, scene_settings.smoothing_factor, scene_settings.max_distance)
+                # print('查看smooth_weights',weights)
+                # weights = smooth_weights(verts, weights, matched_verts, adj_mat, adj_list, scene_settings.smoothing_repeat, scene_settings.smoothing_factor, scene_settings.max_distance)
+                # print('查看smooth_weights',weights)
             if scene_settings.enforce_four_bone_limit:
+                
                 weights[weights <= 0.0001] = 0
-                mask = limit_mask(weights, adj_mat, limit_num=scene_settings.num_limit_groups)
+
+                mask = robust.limit_mask(weights, adj_mat, limit_num=scene_settings.num_limit_groups)
+                # mask = limit_mask(weights, adj_mat, limit_num=scene_settings.num_limit_groups)
                 weights = (1 - mask) * weights
                 weights[weights <= 0.0001] = 0
             
@@ -205,7 +195,7 @@ class KourinSelectNonMatched(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        scene_settings: KourinSceneSettingsGroup = context.scene.kourin_weight_transfer_settings
+        scene_settings = context.scene.kourin_weight_transfer_settings
         if context.mode != 'EDIT_MESH': return False
         if not context.active_object: return False
         if not scene_settings.source_object: return False
@@ -215,7 +205,7 @@ class KourinSelectNonMatched(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.object.mode_set(mode='OBJECT')     
-        scene_settings: KourinSceneSettingsGroup = context.scene.kourin_weight_transfer_settings
+        scene_settings = context.scene.kourin_weight_transfer_settings
         source_obj: bpy.types.Object = scene_settings.source_object
         
         depsgraph = context.evaluated_depsgraph_get()
@@ -229,11 +219,12 @@ class KourinSelectNonMatched(bpy.types.Operator):
         source_weights = util.get_groups_arr(source_obj, is_deform if deform_only else None)
         
         obj = context.active_object
+
         verts, triangles, normals = util.get_obj_arrs_world(obj.evaluated_get(depsgraph) if scene_settings.use_deformed_target else obj)
         matched_verts, weights = find_matches_closest_surface(source_verts, source_triangles, source_normals, verts, normals, source_weights, scene_settings.max_distance**2, math.degrees(scene_settings.max_normal_angle_difference), scene_settings.flip_vertex_normal)
         
         if not scene_settings.apply_to_selected:
-            object_settings: KourinObjectSettingsGroup = obj.kourin_weight_transfer_settings
+            object_settings = obj.kourin_weight_transfer_settings
             has_inpaint = len(object_settings.inpaint_group) > 0 and object_settings.inpaint_group in obj.vertex_groups
             if has_inpaint:
                 inpaint_mask = util.get_group_arr(obj, object_settings.inpaint_group)
@@ -243,7 +234,7 @@ class KourinSelectNonMatched(bpy.types.Operator):
                 matched_verts = np.logical_and(matched_verts, ~inpaint_mask_bin)
         
         # get loose part meshes
-        num_conn, conn, num_vertices = igl.connected_components(igl.adjacency_matrix(triangles))
+        num_conn, conn, num_vertices = robust.connected_components_int(robust.adjacency_matrix(triangles))
         conns = [np.where(conn == i)[0] for i in range(num_conn)]
         matched_per_submesh = [np.count_nonzero(matched_verts[c]) for c in conns]
         zero_matched_submeshes = [i for i, m in enumerate(matched_per_submesh) if m == 0]
@@ -263,6 +254,60 @@ class KourinSelectNonMatched(bpy.types.Operator):
         self.report({'INFO'}, f'Selected {np.count_nonzero(selects)} out of {selects.shape[0]} vertices.')
 
         return {'FINISHED'}
+    
+class Inpaint(bpy.types.Operator):
+    """Inpaint"""
+    bl_idname = "object.rwt_inpaint"
+    bl_label = "Inpaint"
+    bl_description = "Inpaint active object using the inpaint mask"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        scene_settings  = context.scene.kourin_weight_transfer_settings
+        object_settings = context.active_object.kourin_weight_transfer_settings
+        
+        if not context.active_object: return False
+        if len(object_settings.inpaint_group) == 0 or object_settings.inpaint_group not in context.active_object.vertex_groups: return False
+        
+        if scene_settings.use_deformed_target and util.has_modifier(context.active_object, *util.TOPOLOGY_MODS): return False
+        return True
+
+    def execute(self, context):
+        scene_settings = context.scene.kourin_weight_transfer_settings
+        obj = context.active_object
+        object_settings = obj.kourin_weight_transfer_settings
+        
+        depsgraph = context.evaluated_depsgraph_get()
+        verts, triangles, normals = util.get_obj_arrs_world(obj.evaluated_get(depsgraph) if scene_settings.use_deformed_target else obj)
+        is_deform = [util.is_vertex_group_deform_bone(obj, g.name) for g in obj.vertex_groups]
+        weights = util.get_groups_arr(obj, is_deform)
+
+        inpaint_mask = util.get_group_arr(obj, object_settings.inpaint_group)
+        inpaint_mask_bin = inpaint_mask > object_settings.inpaint_threshold
+        result, weights = inpaint(verts, triangles, weights, ~inpaint_mask_bin, scene_settings.inpaint_mode == 'POINT')
+        if not result:
+            self.report({'ERROR'}, f'Failed weight inpainting on {obj.name}: This usually happens on loose parts, where vertices are not finding a match on the source mesh. Use Select Rejected Loose Parts to solve the issue.')
+            return {'CANCELLED'}
+
+        for i, w in enumerate(weights.T):
+            group = obj.vertex_groups[i]
+            if group.lock_weight: continue
+            
+            if not is_deform[i]: continue
+            
+            w_count = np.count_nonzero(w)
+            if w_count == 0: continue
+
+            for j, wv in enumerate(w):
+                if wv >= 0.00001:
+                    group.add([j], wv, 'REPLACE')
+        
+            ind = np.where(w < 0.00001)[0].tolist()
+            group.remove(ind)  
+        self.report({'INFO'}, f'Weights inpainted.')
+        return {'FINISHED'}
+        
         
 
 class KourinObjectSettingsGroup(bpy.types.PropertyGroup):
@@ -376,20 +421,20 @@ class KourinRobustWeightTransferPanel(bpy.types.Panel):
     def draw(self, context): 
         layout = self.layout
 
-        if missing_deps:
-            box = layout.box()
-            col = box.column()
-            global installed_deps
-            if installed_deps:
-                col.label(text="Dependencies installed!", icon='INFO')
-                col.label(text="Restart Blender!", icon='ERROR')
-                installed_deps = True
-                return
+        # if missing_deps:
+        #     box = layout.box()
+        #     col = box.column()
+        #     global installed_deps
+        #     if installed_deps:
+        #         col.label(text="Dependencies installed!", icon='INFO')
+        #         col.label(text="Restart Blender!", icon='ERROR')
+        #         installed_deps = True
+        #         return
             
-            col.label(text="Blender will be unreactive while installing")
-            col.operator("kourin.install_rwt_dependencies", icon='IMPORT')
-            col.label(text="This might take a few minutes", icon='INFO')
-            return
+        #     col.label(text="Blender will be unreactive while installing")
+        #     col.operator("kourin.install_rwt_dependencies", icon='IMPORT')
+        #     col.label(text="This might take a few minutes", icon='INFO')
+        #     return
 
         active_obj = context.object
         if not context.object:
@@ -570,6 +615,7 @@ class KourinUtilitiesPanel(bpy.types.Panel):
         row = layout.row(align=True)
         row.operator('object.smooth_limit_weights')
         row.prop(settings, 'smooth_limit_debug', text='', icon='GROUP_VERTEX')
+        layout.operator('object.rwt_inpaint')
     
 
 class KourinSmoothLimit(bpy.types.Operator):
@@ -593,7 +639,7 @@ class KourinSmoothLimit(bpy.types.Operator):
         is_deform = [util.is_vertex_group_deform_bone(obj, g.name) for g in obj.vertex_groups]
         W = util.get_groups_arr(obj, is_deform)
         adj_mat = util.get_mesh_adjacency_matrix_sparse(obj.data, True)
-        mask = limit_mask(W, adj_mat, limit_num=scene_settings.num_limit_groups)
+        mask = robust.limit_mask(W, adj_mat, limit_num=scene_settings.num_limit_groups)
         W = (1 - mask) * W
         util.write_weights(obj, W[:, is_deform], [group.name for i, group in enumerate(obj.vertex_groups) if is_deform[i]], 0.0001)
         if scene_settings.smooth_limit_debug:
@@ -601,77 +647,3 @@ class KourinSmoothLimit(bpy.types.Operator):
             util.write_weights(obj, limited[:, np.newaxis], ['Limited'])
         return {'FINISHED'}
 
-class KourinInstallDependencies(bpy.types.Operator):
-    """Install missing Python dependencies"""
-    bl_idname = "kourin.install_rwt_dependencies"
-    bl_label = "Install Dependencies"
-    
-    def execute(self, context):
-        python_exe = sys.executable
-        print(python_exe)
-        
-        global libs_path
-        if not os.path.exists(libs_path):
-            os.makedirs(libs_path)
-        try:
-            subprocess.check_call([python_exe, "-m", "ensurepip"])
-            subprocess.check_call([
-                python_exe, "-m", "pip", "install", 
-                *missing_deps, "--target", libs_path
-            ])
-            self.report({'INFO'}, "Installation successful! Please restart Blender.")
-            global installed_deps
-            installed_deps = True
-            return {'FINISHED'}
-        except subprocess.CalledProcessError as e:
-            self.report({'ERROR'}, f"Installation failed: {str(e)}")
-            return {'CANCELLED'}
-
-
-def Robust_register():
-    # bpy.types.VIEW3D_MT_make_links.append(menu_func)
-    bpy.utils.register_class(KourinRobustWeightTransfer)
-    bpy.utils.register_class(KourinRobustWeightTransferPanel)
-    if missing_deps:
-        bpy.utils.register_class(KourinInstallDependencies)
-    else:
-        bpy.utils.register_class(KourinInstallDependencies)
-        bpy.utils.register_class(KourinSettingsPanel)
-        bpy.utils.register_class(KourinVertexMappingPanel)
-        bpy.utils.register_class(KourinLimitGroupsPanel)
-        bpy.utils.register_class(KourinSmoothingPanel)
-        bpy.utils.register_class(KourinObjectSettingsGroup)
-        bpy.utils.register_class(KourinSceneSettingsGroup)
-        bpy.utils.register_class(KourinSelectNonMatched)
-        bpy.utils.register_class(KourinResetSceneSettings)
-        bpy.utils.register_class(KourinUtilitiesPanel)
-        bpy.utils.register_class(KourinSmoothLimit)
-        bpy.types.Object.kourin_weight_transfer_settings = bpy.props.PointerProperty(type=KourinObjectSettingsGroup)
-        bpy.types.Scene.kourin_weight_transfer_settings = bpy.props.PointerProperty(type=KourinSceneSettingsGroup)
-        
-
-    
-def Robust_unregister():
-    # bpy.types.VIEW3D_MT_make_links.remove(menu_func)
-    bpy.utils.unregister_class(KourinRobustWeightTransfer)
-    bpy.utils.unregister_class(KourinRobustWeightTransferPanel)
-    if missing_deps:
-        bpy.utils.unregister_class(KourinInstallDependencies)
-    else:
-        bpy.utils.register_class(KourinInstallDependencies)
-        bpy.utils.unregister_class(KourinSettingsPanel)
-        bpy.utils.unregister_class(KourinVertexMappingPanel)
-        bpy.utils.unregister_class(KourinLimitGroupsPanel)
-        bpy.utils.unregister_class(KourinSmoothingPanel)
-        bpy.utils.unregister_class(KourinObjectSettingsGroup)
-        bpy.utils.unregister_class(KourinSceneSettingsGroup)
-        bpy.utils.unregister_class(KourinSelectNonMatched)
-        bpy.utils.unregister_class(KourinResetSceneSettings)
-        bpy.utils.unregister_class(KourinUtilitiesPanel)
-        bpy.utils.unregister_class(KourinSmoothLimit)
-        del bpy.types.Object.kourin_weight_transfer_settings
-        del bpy.types.Scene.kourin_weight_transfer_settings
-
-
-# if __name__ == "__main__":
-#     register()

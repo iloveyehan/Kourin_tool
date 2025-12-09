@@ -3,7 +3,7 @@ import rna_keymap_ui
 from mathutils import Vector
 from bpy_extras.view3d_utils import region_2d_to_location_3d, location_3d_to_region_2d
 from bl_ui.space_statusbar import STATUSBAR_HT_header as statusbar
-from . registration import get_prefs
+from ..utils.utils import get_prefs
 # from .. reg import keys
 from time import time
 

@@ -1,0 +1,6 @@
+[submodule "robust_laplacian/robust_laplacian/deps/geometry-central"]
+	path = robust_laplacian/robust_laplacian/deps/geometry-central
+	url = https://github.com/geometry-central/geometry-central.git
+[submodule "robust_laplacian/robust_laplacian/deps/igl"]
+	path = robust_laplacian/robust_laplacian/deps/igl
+	url = https://github.com/libigl/libigl.git

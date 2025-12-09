@@ -1,5 +1,6 @@
 import math
 import bpy
+import numpy as np
 def vg_clean_advanced(obj):
     '''清理所有顶点组中的非法权重（0、负值、NaN）
         返回:报告'''
@@ -44,3 +45,68 @@ def vg_clear_unused(obj):
     for vg in obj.vertex_groups:
         if vg.name not in used_vg:
             obj.vertex_groups.remove(vg)
+def is_vertex_group_deform_bone(obj, group_name):
+    armature_mod = None
+    for mod in obj.modifiers:
+        if mod.type == 'ARMATURE':
+            armature_mod = mod
+            break
+
+    if not armature_mod or not armature_mod.object or armature_mod.object.type != 'ARMATURE':
+        return False
+
+    armature_obj = armature_mod.object
+    bone = armature_obj.data.bones.get(group_name)
+
+    if bone and bone.use_deform:
+        return True
+
+    return False
+def get_groups_arr(obj: bpy.types.Object, include_groups: list[bool]=None):
+    mesh: bpy.types.Mesh = obj.data
+    if not isinstance(mesh, bpy.types.Mesh): return
+
+    arr = np.zeros((len(mesh.vertices), len(obj.vertex_groups)), dtype=np.float32)
+    for i, v in enumerate(mesh.vertices):
+        current_vertex = arr[i]
+        for g in v.groups:
+            if g.group >= arr.shape[1]:
+                print(f"WARNING: group index {g.group} out of bounds ({arr.shape[1]} vertex groups) for vertex {i}")
+                continue
+            if include_groups and include_groups[g.group]:
+                current_vertex[g.group] = g.weight
+            elif not include_groups:
+                current_vertex[g.group] = g.weight
+    return arr
+def is_group_valid(vertex_groups, group_name):
+    return len(group_name) > 0 and group_name in vertex_groups
+def get_group_arr(obj: bpy.types.Object, group_name):
+    mesh: bpy.types.Mesh = obj.data
+    if not isinstance(mesh, bpy.types.Mesh): return
+    group_index = obj.vertex_groups[group_name].index
+    arr = np.zeros(len(mesh.vertices), dtype=np.float32)
+    for i, v in enumerate(mesh.vertices):
+        for g in v.groups:
+            if g.group == group_index:
+                arr[i] = g.weight
+    return arr
+def draw_debug_vertex_colors(obj, matched):
+    mesh: bpy.types.Mesh = obj.data
+    if not isinstance(mesh, bpy.types.Mesh): return
+
+    if "RBT Matched" in mesh.vertex_colors:
+        color_layer = mesh.vertex_colors["RBT Matched"]
+    else:
+        color_layer = mesh.vertex_colors.new(name="RBT Matched")
+    if not color_layer: return False
+    color_layer.active = True
+    loop_ind = np.zeros(len(mesh.loops), dtype=np.int64)
+    mesh.loops.foreach_get('vertex_index', loop_ind)
+    loop_matched = matched[loop_ind]
+    color_data = np.ones((len(mesh.loops), 4), dtype=np.float32)
+    color_data[~loop_matched] = [234/255, 0, 255/255, 1.0]
+    color_layer.data.foreach_set("color", color_data.reshape(-1))
+    mesh.update()
+    mesh.vertex_colors.active = color_layer
+    return True
+

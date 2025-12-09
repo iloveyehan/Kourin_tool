@@ -4,13 +4,6 @@ from mathutils import Vector
 from .. utils.draw import draw_label
 from .. utils.ui import get_scale, init_timer_modal, set_countdown, get_timer_progress
 from pathlib import Path
-from ..common.class_loader.auto_load import ClassAutoloader
-draw_info=ClassAutoloader(Path(__file__))
-def reg_draw_info():
-    draw_info.init()
-    draw_info.register()
-def unreg_draw_info():
-    draw_info.unregister()
 class DrawLabel(bpy.types.Operator):
     bl_idname = "ops_info.draw_label"
     bl_label = "OPS_INFO: Draw Label"

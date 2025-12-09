@@ -1,5 +1,29 @@
+# import sys
+# sys.path.append(r'G:\\work\\001Blender\\blender_init\\addons\\a_imgui\\robust_laplacian\\robust_laplacian\\build\\Release')
+# import robust
+from . import robust
+
+
+# This file is part of Robust Weight Transfer for Blender.
+#
+# Copyright (C) 2025 sentfromspacevr
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Attribution: Developed by sentfromspacevr (https://github.com/sentfromspacevr)
+
 import numpy as np
-import scipy as sp
 import bpy
 
 
@@ -138,7 +162,8 @@ def get_mesh_adjacency_matrix_sparse(mesh: bpy.types.Mesh, include_self=False):
     data = np.ones(len(rows), dtype=int)  # Corresponding data entries for the CSR matrix
 
     # Create a symmetric adjacency matrix (since each edge is undirected)
-    adjacency_matrix = sp.sparse.csr_array((data, (rows, cols)), shape=(num_verts, num_verts))
+    adjacency_matrix = robust.csr_array((data, (rows, cols)), shape=(num_verts, num_verts))
+    # adjacency_matrix = sp.sparse.csr_array((data, (rows, cols)), shape=(num_verts, num_verts))
     if include_self:
         adjacency_matrix.setdiag(1)
     return adjacency_matrix

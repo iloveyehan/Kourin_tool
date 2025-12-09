@@ -1,5 +1,5 @@
 import bpy
-from .registration import get_prefs, get_addon
+from ..utils.utils import get_prefs
 import blf
 def draw_label(context, title='', coords=None, offset=0, center=True, size=12, color=(1, 1, 1), alpha=1):
     if not coords:

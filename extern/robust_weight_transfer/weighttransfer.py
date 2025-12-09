@@ -1,13 +1,65 @@
-# This code is based on https://github.com/rin-23/RobustSkinWeightsTransferCode/blob/main/src/utils.py
-# by Rinat Abdrashitov (MIT License)
-# 
-# Changes were made to make the code compatible with Blender's data structures
-# and to improve performance and robustness
+# # This code is based on https://github.com/rin-23/RobustSkinWeightsTransferCode/blob/main/src/utils.py
+# # by Rinat Abdrashitov (MIT License)
+# # 
+# # Changes were made to make the code compatible with Blender's data structures
+# # and to improve performance and robustness
 
-import igl
+
+# import sys
+# sys.path.append(r'G:\\work\\001Blender\\blender_init\\addons\\a_imgui\\robust_laplacian\\robust_laplacian\\build\\Release')
+# import robust
+from . import robust
+            
+# This file is part of Robust Weight Transfer for Blender.
+#
+# Portions of this code are based on:
+#   RobustSkinWeightsTransferCode (https://github.com/rin-23/RobustSkinWeightsTransferCode/blob/main/src/utils.py)
+#   by Rinat Abdrashitov, used under the MIT License (see below).
+#
+# Changes were made to make the code compatible with Blender's data structures
+# and to improve performance and robustness.
+#
+# Copyright (C) 2025 sentfromspacevr
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Attribution: Developed by sentfromspacevr (https://github.com/sentfromspacevr)
+#
+# ---- Original MIT License Notice Follows ----
+#
+# The following portions of this file are based on work by Rinat Abdrashitov and are licensed under the MIT License:
+#
+# Copyright (c) 2024 Rinat Abdrashitov
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 import numpy as np
-import scipy as sp
-import robust_laplacian
 
 
 def find_closest_point_on_surface(P, V, F):
@@ -25,14 +77,16 @@ def find_closest_point_on_surface(P, V, F):
         B #P by 3 of the barycentric coordinates of the closest point
     """
     
-    sqrD,I,C = igl.point_mesh_squared_distance(P, V, F)
+    # sqrD,I,C = igl.point_mesh_squared_distance(P, V, F)
+    sqrD,I,C = robust.point_mesh_squared_distance(P, V, F)
 
     F_closest = F[I,:]
     V1 = V[F_closest[:,0],:]
     V2 = V[F_closest[:,1],:]
     V3 = V[F_closest[:,2],:]
 
-    B = igl.barycentric_coordinates_tri(C, V1, V2, V3)
+    # B = igl.barycentric_coordinates_tri(C, V1, V2, V3)
+    B = robust.barycentric_coordinates_tri(C, V1, V2, V3)
 
     return sqrD,I,C,B
 
@@ -135,86 +189,31 @@ def inpaint(V2, F2, W2, Matched, point_cloud):
         W_inpainted: #V2 by num_bones, final skinning weights where we inpainted weights for all vertices i where Matched[i] == False
     """
     
-    if point_cloud:
-        L, M = robust_laplacian.point_cloud_laplacian(V2)
-    else:
-        L, M = robust_laplacian.mesh_laplacian(V2, F2)
-    L = -L # igl and robust_laplacian have different laplacian conventions
+    # if point_cloud:
+    #     L, M = robust_laplacian.point_cloud_laplacian(V2)
+    # else:
+    #     L, M = robust_laplacian.mesh_laplacian(V2, F2)
+    L, M =robust.buildPointCloudLaplacian(V2.astype(np.float64),1e-5,30)
+    # L = -L # igl and robust_laplacian have different laplacian conventions
     
-    Minv = sp.sparse.diags(1 / M.diagonal()) # divide by zero?
+    # Minv = sp.sparse.diags(1 / M.diagonal()) # divide by zero?
 
-    Q2 = -L + L*Minv*L
-    Q2 = Q2.astype(np.float64)
-
-    Aeq = sp.sparse.csc_matrix((0, 0), dtype=np.float64)
+    # Q2 = -L + L*Minv*L
+    # Q2 = Q2.astype(np.float64)
+    Q2=robust.compute_Q2(L, M)
+    # Aeq = sp.sparse.csc_matrix((0, 0), dtype=np.float64)
+    Aeq = robust.make_empty_sparse(0,0)
     Beq = np.array([], dtype=np.float64)
     B = np.zeros(shape = (L.shape[0], W2.shape[1]), dtype=np.float64)
 
     b = np.array(range(0, int(V2.shape[0])), dtype=np.int64)
     b = b[Matched]
     bc = W2[Matched,:].astype(np.float64)
-    result, W_inpainted = igl.min_quad_with_fixed(Q2, B, b, bc, Aeq, Beq, True)
+    result, W_inpainted = robust.min_quad_with_fixed(Q2, B, b, bc, Aeq, Beq, True)
     W_inpainted = W_inpainted.astype(np.float32)
     # when W2 shape = (num_verts, 1), it gets flattened to (num_verts, )
     # reshape it back to initial shape, limit_mask expects 2d array
     if result:
         W_inpainted = W_inpainted.reshape(W2.shape)
     return result, W_inpainted # TODO: Add results
-    
-    
-def limit_mask(weights, adjacency_matrix, dilation_repeat=5, limit_num=4):
-    if weights.shape[1] <= limit_num: return np.zeros_like(weights)
-    
-    count = np.count_nonzero(weights, axis=1)
-    to_limit = count > limit_num
-    k = weights.shape[1] - limit_num
-    weights_inds = np.argpartition(weights, kth=k, axis=1)[:, :k]
-    row_indices = np.arange(weights.shape[0])[:, None]
-    erode_mask = np.zeros_like(weights, dtype=bool)
-    erode_mask[row_indices, weights_inds] = True
-    erode_mask = np.logical_and(erode_mask, to_limit[:, np.newaxis])
-    erode_mask = sp.sparse.csr_array(erode_mask).astype(np.float32)
-    adj_mat = adjacency_matrix
-    degrees = adj_mat.sum(axis=1)
-    smooth_mat = (1/degrees[:, np.newaxis]) * adj_mat
-    for _ in range(dilation_repeat):
-        avg_weights = smooth_mat @ erode_mask
-        erode_mask = erode_mask.maximum(avg_weights)
-    
-    return erode_mask.toarray()
 
-
-def smooth_weigths(verts, weights, matched, adjacency_matrix, adjacency_list, num_smooth_iter_steps, smooth_alpha, distance_threshold):
-    not_matched = ~matched
-    VIDs_to_smooth = np.zeros(verts.shape[0], dtype=bool)
-
-    def get_points_within_distance(V, VID, distance=distance_threshold):
-        """
-        Get all neighbours of vertex VID within dDISTANCE_THRESHOLD
-        """
-        queue = []
-        queue.append(VID)
-        while len(queue) != 0:
-            vv = queue.pop()
-            if vv < len(adjacency_list):
-                neigh = adjacency_list[vv]
-                for nn in neigh:
-                    if ~VIDs_to_smooth[nn] and np.linalg.norm(V[VID,:]-V[nn]) < distance:
-                        VIDs_to_smooth[nn] = True
-                        if nn not in queue:
-                            queue.append(nn)
-
-    for i in range(verts.shape[0]):
-        if not_matched[i]:
-            get_points_within_distance(verts, i, distance_threshold)
-            
-    adj_mat = adjacency_matrix.astype(np.float32)
-    degrees = adj_mat.sum(axis=1)
-    
-    smooth_mat = sp.sparse.diags(1/degrees) @ adj_mat
-    weights_smoothed = sp.sparse.csr_array(weights)
-    for _ in range(num_smooth_iter_steps):
-        weights_smoothed = (1 - smooth_alpha) * weights_smoothed + smooth_alpha * (smooth_mat @ weights_smoothed)
-        weights_smoothed[~VIDs_to_smooth] = weights[~VIDs_to_smooth]
-    return weights_smoothed.todense()
-            
