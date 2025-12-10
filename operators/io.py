@@ -6,13 +6,7 @@ import bpy
 import json
 import gzip
 import os
-from ..common.class_loader.auto_load import ClassAutoloader
-mesh_io=ClassAutoloader(Path(__file__))
-def reg_mesh_io():
-    mesh_io.init()
-    mesh_io.register()
-def unreg_mesh_io():
-    mesh_io.unregister()
+
 
     
 def save_mesh_data(obj, filepath):
@@ -239,12 +233,12 @@ class Kourin_load_surfacedeform(Operator):
         default="",
     )
     def execute(self, context):
-        from ..ui.qt_global import GlobalProperty as gp
+        from ..imgui_setup.imgui_global import GlobalImgui as gp
         try:
             # 使用示例
             print('当前文件夹:',MODULE_DIR)
-            if self.file_name=='':
-                self.file_name=gp.get().surface_defrom_name + '_fitting_surface'
+            # self.file_name=''
+            self.file_name=gp.get().surface_deform_name + '_fitting_surface'
             filepath = MODULE_DIR /'surface_deform'/ f"{self.file_name}_meshdata.json.gz"
             # filepath = os.path.join(bpy.path.abspath("//"), f"{self.file_name}_meshdata.json.gz")
             data = load_mesh_data(filepath)
@@ -264,12 +258,12 @@ class Kourin_load_loose_surfacedeform(Operator):
         default="",
     )
     def execute(self, context):
-        from ..ui.qt_global import GlobalProperty as gp
+        from ..imgui_setup.imgui_global import GlobalImgui as gp
         try:
             # 使用示例
             print('当前文件夹:',MODULE_DIR)
-            if self.file_name=='':
-                self.file_name=gp.get().surface_defrom_name + '_loose_surface'
+            
+            self.file_name=gp.get().surface_deform_name + '_loose_surface'
             filepath = MODULE_DIR /'surface_deform'/ f"{self.file_name}_meshdata.json.gz"
             # filepath = os.path.join(bpy.path.abspath("//"), f"{self.file_name}_meshdata.json.gz")
             data = load_mesh_data(filepath)

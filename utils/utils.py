@@ -1,14 +1,378 @@
+import copy
+
+import sys
+from imgui_bundle import imgui
+# if '3.10' in sys.version:
+#     from imgui_bundle3_10.imgui_bundle import imgui
+# else:
+#     from imgui_bundle3_11.imgui_bundle import imgui
 import bpy
-from functools import wraps
 from pathlib import Path
-
-from PySide6 import QtWidgets, QtCore, QtGui
-from PySide6.QtGui import QColor
-from PySide6.QtCore import QTimer, QPropertyAnimation, QEasingCurve
-from shiboken6 import wrapInstance
-
+def get_path():
+    '''获取插件目录'''
+    # 获取当前脚本的绝对路径，并返回其父目录
+    # print('get_path',Path(__file__).resolve().parent)
+    return Path(__file__).resolve().parent.parent
+def get_name():
+    '''获取插件文件夹名[True,addon name][False,extension name]'''
+    path = get_path()
+    # 否则返回路径的名称
+    print('get_name',path.name)
+    return path.name
+def get_bl_name():
+    '''获取插件文件夹名[True,addon name][False,extension name]'''
+    path = get_path()
+    # 判断路径中是否包含 'extensions'
+    if 'extensions' in str(path) and 'Blender Foundation' in str(path):
+        # 返回格式化的名称
+        # print('get_name',f'bl_ext.user_default.{path.name}')
+        return [False,f'bl_ext.user_default.{path.name}']
+    if 'extensions_local' in str(path):
+        # 返回格式化的名称
+        # print('get_name',f'bl_ext.user_default.{path.name}')
+        return [False,f'bl_ext.extensions_local.{path.name}']
     
+    # 否则返回路径的名称
+    print('get_name',path.name)
+    return [True,path.name]
+# Path.stem
+def get_prefs():
+    # print('获取插件名preferences',get_bl_name(),Path(__file__))
+    return bpy.context.preferences.addons[get_bl_name()[1]].preferences
+def get_imgui_widget_center():
+    h=116
+    return imgui.ImVec2(imgui.get_mouse_pos().x-h,imgui.get_mouse_pos().y-h)
+def set_brush_color_based_on_mode(color=None,hsv=None):
+    # 获取当前的模式
+    mode = bpy.context.object.mode
+    if hsv:
+        # 根据不同的模式获取笔刷颜色
+        if mode == 'VERTEX_PAINT':
+            # 在顶点绘制模式下
+            bpy.context.tool_settings.vertex_paint.brush.color.hsv = color
 
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            bpy.context.tool_settings.image_paint.brush.color.hsv = color
+
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            bpy.context.tool_settings.gpencil_paint.brush.color.hsv = color
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            bpy.context.tool_settings.gpencil_vertex_paint.brush.color.hsv = color
+        elif mode == 'SCULPT':
+            bpy.data.brushes['Paint'].color.hsv = color
+        elif bpy.context.area.spaces.active.ui_mode == 'PAINT':
+            bpy.context.tool_settings.image_paint.brush.color.hsv = color
+    else:
+        # 根据不同的模式获取笔刷颜色
+        if mode == 'VERTEX_PAINT':
+            # 在顶点绘制模式下
+            bpy.context.tool_settings.vertex_paint.brush.color=color
+
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            bpy.context.tool_settings.image_paint.brush.color=color
+
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            bpy.context.tool_settings.gpencil_paint.brush.color=color
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            bpy.context.tool_settings.gpencil_vertex_paint.brush.color = color
+        elif mode == 'SCULPT':
+            bpy.data.brushes['Paint'].color = color
+        elif bpy.context.area.spaces.active.ui_mode == 'PAINT':
+            bpy.context.tool_settings.image_paint.brush.color = color
+def brush_value_based_on_mode(set=False,get=False,size=False,strength=False,):
+    mode = bpy.context.object.mode
+    from bl_ui.properties_paint_common import UnifiedPaintPanel
+    ps=UnifiedPaintPanel.paint_settings(bpy.context)
+    if set:
+        # 根据不同的模式获取笔刷颜色
+        if mode == 'VERTEX_PAINT':
+            
+            # 在顶点绘制模式下
+            if size:
+                ps.unified_paint_settings.size=size
+                # ps=UnifiedPaintPanel.paint_settings(bpy.context)
+                # ps.brush.size=size
+                # print(ps.brush.size)
+                # bpy.context.scene.tool_settings.unified_paint_settings.size=size
+                # bpy.context.tool_settings.vertex_paint.brush.size = size
+                # print('set size',size)
+            if strength:
+                # ps=UnifiedPaintPanel.paint_settings(bpy.context)
+                ps.brush.strength=strength
+                # bpy.context.tool_settings.vertex_paint.brush.strength = strength
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            if size:
+                bpy.context.scene.tool_settings.unified_paint_settings.size = size
+                # bpy.context.tool_settings.image_paint.brush.size = size
+            if strength:
+                bpy.context.tool_settings.image_paint.brush.strength = strength
+
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            if size:
+            # bpy.context.tool_settings.gpencil_paint.brush.strength=strength
+                if bpy.context.tool_settings.gpencil_paint.brush==bpy.data.brushes['Pencil']:
+                    bpy.data.brushes['Pencil'].size = size
+                elif bpy.context.tool_settings.gpencil_paint.brush==bpy.data.brushes['Tint']:
+                    bpy.data.brushes['Tint'].size = size
+                else:
+                    bpy.context.tool_settings.gpencil_paint.brush.size = size
+            if strength:
+                if bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Pencil']:
+                    bpy.data.brushes['Pencil'].gpencil_settings.pen_strength = strength
+                elif bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Tint']:
+                    bpy.data.brushes['Tint'].gpencil_settings.pen_strength = strength
+                else:
+                    if hasattr(bpy.context.tool_settings.gpencil_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.context.tool_settings.gpencil_paint.brush.gpencil_settings.pen_strength = strength
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            if size:
+                if bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Draw']:
+                    bpy.data.brushes['Vertex Draw'].size = size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Blur']:
+                    bpy.data.brushes['Vertex Blur'].size = size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Average']:
+                    bpy.data.brushes['Vertex Average'].size = size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Smear']:
+                    bpy.data.brushes['Vertex Smear'].size = size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Replace']:
+                    bpy.data.brushes['Vertex Replace'].size = size
+
+                else:
+                    bpy.context.tool_settings.gpencil_vertex_paint.brush.size = size
+            if strength:
+                if bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Draw']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.data.brushes['Vertex Draw'].gpencil_settings.pen_strength = strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Blur']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.data.brushes['Vertex Blur'].gpencil_settings.pen_strength = strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Average']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.data.brushes['Vertex Average'].gpencil_settings.pen_strength = strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Smear']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.data.brushes['Vertex Smear'].gpencil_settings.pen_strength = strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Replace']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        bpy.data.brushes['Vertex Replace'].gpencil_settings.pen_strength = strength
+        elif mode == 'SCULPT':
+            if size:
+                bpy.data.brushes['Paint'].size = size
+            if strength:
+                bpy.data.brushes['Paint'].strength = strength
+        elif bpy.context.area.spaces.active.ui_mode == 'PAINT':
+            if size:
+                bpy.context.tool_settings.image_paint.brush.size = size
+            if strength:
+                bpy.context.tool_settings.image_paint.brush.strength = strength
+
+    if get:
+        if mode == 'VERTEX_PAINT':
+            # 在顶点绘制模式下
+            # from bl_ui.properties_paint_common import UnifiedPaintPanel
+            # ps=UnifiedPaintPanel.paint_settings(bpy.context)
+            # ps.brush
+            # brush = ps.brush
+            # brush = bpy.context.tool_settings.vertex_paint.brush
+            if size:
+                value = ps.unified_paint_settings.size
+                # value = bpy.context.scene.tool_settings.unified_paint_settings.size
+            if strength:
+                value =  ps.brush.strength
+            # print('sizeget ',value)
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            brush = bpy.context.tool_settings.image_paint.brush
+            if size:
+                value = bpy.context.scene.tool_settings.unified_paint_settings.size
+            if strength:
+                value = brush.strength
+        elif mode == 'PAINT_GPENCIL':
+            if size:
+                # bpy.context.tool_settings.gpencil_paint.brush.strength=strength
+                if bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Pencil']:
+                    value=bpy.data.brushes['Pencil'].size
+                elif bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Tint']:
+                    value=bpy.data.brushes['Tint'].size
+                else:
+                    value=bpy.context.tool_settings.gpencil_paint.brush.size
+            if strength:
+                if bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Pencil']:
+                    value=bpy.data.brushes['Pencil'].gpencil_settings.pen_strength
+                elif bpy.context.tool_settings.gpencil_paint.brush == bpy.data.brushes['Tint']:
+                    value=bpy.data.brushes['Tint'].gpencil_settings.pen_strength
+                else:
+                    if hasattr(bpy.context.tool_settings.gpencil_paint.brush.gpencil_settings, 'pen_strength'):
+                        value=bpy.context.tool_settings.gpencil_paint.brush.gpencil_settings.pen_strength
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            # brush = bpy.context.tool_settings.gpencil_vertex_paint.brush
+            if size:
+                if bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Draw']:
+                    value = bpy.data.brushes['Vertex Draw'].size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Blur']:
+                    value = bpy.data.brushes['Vertex Blur'].size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Average']:
+                    value = bpy.data.brushes['Vertex Average'].size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Smear']:
+                    value = bpy.data.brushes['Vertex Smear'].size
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush==bpy.data.brushes['Vertex Replace']:
+                    value = bpy.data.brushes['Vertex Replace'].size
+
+                else:
+                    value = bpy.context.tool_settings.gpencil_paint.brush.size
+            if strength:
+                if bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Draw']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        value = bpy.data.brushes['Vertex Draw'].gpencil_settings.pen_strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Blur']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        value = bpy.data.brushes['Vertex Blur'].gpencil_settings.pen_strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Average']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        value = bpy.data.brushes['Vertex Average'].gpencil_settings.pen_strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Smear']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        value = bpy.data.brushes['Vertex Smear'].gpencil_settings.pen_strength
+                elif bpy.context.tool_settings.gpencil_vertex_paint.brush == bpy.data.brushes['Vertex Replace']:
+                    if hasattr(bpy.context.tool_settings.gpencil_vertex_paint.brush.gpencil_settings, 'pen_strength'):
+                        value = bpy.data.brushes['Vertex Replace'].gpencil_settings.pen_strength
+            # strength = bpy.data.brushes['Vertex Draw'].gpencil_settings.pen_strength
+        elif mode == 'SCULPT':
+            brush = bpy.data.brushes['Paint']
+            if size:
+                value =  brush.size
+            if strength:
+                value =  brush.strength
+        elif bpy.context.area.spaces.active.ui_mode == 'PAINT':
+            brush = bpy.context.tool_settings.image_paint.brush
+            if size:
+                value =  brush.size
+            if strength:
+                value =  brush.strength
+        return value
+
+
+def get_brush_color_based_on_mode():
+        # 获取当前的模式
+        mode = bpy.context.object.mode
+
+        # 根据不同的模式获取笔刷颜色
+        if mode == 'VERTEX_PAINT':
+            # 在顶点绘制模式下
+            brush = bpy.context.tool_settings.vertex_paint.brush
+            color = brush.color
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            brush = bpy.context.tool_settings.image_paint.brush
+            color = brush.color
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            brush = bpy.context.tool_settings.gpencil_paint.brush
+            color = brush.color
+        elif mode == 'VERTEX_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            brush = bpy.context.tool_settings.gpencil_vertex_paint.brush
+            color = brush.color
+        elif mode=='SCULPT':
+            brush = bpy.data.brushes['Paint']
+            color = brush.color
+        elif bpy.context.area.spaces.active.ui_mode=='PAINT':
+            brush = bpy.context.tool_settings.image_paint.brush
+            color = brush.color
+        return color
+
+
+
+def exchange_brush_color_based_on_mode(exchange=None):
+    mode = bpy.context.object.mode
+    if exchange:
+        # 根据不同的模式获取笔刷颜色
+        if mode == 'VERTEX_PAINT':
+            # 在顶点绘制模式下
+            tmp=copy.deepcopy(bpy.context.tool_settings.vertex_paint.brush.color)
+            bpy.context.tool_settings.vertex_paint.brush.color= bpy.context.tool_settings.vertex_paint.brush.secondary_color
+            bpy.context.tool_settings.vertex_paint.brush.secondary_color=tmp
+
+        elif mode == 'TEXTURE_PAINT':
+            # 在纹理绘制模式下
+            tmp = copy.deepcopy(bpy.context.tool_settings.image_paint.brush.color)
+            bpy.context.tool_settings.image_paint.brush.color = bpy.context.tool_settings.image_paint.brush.secondary_color
+            bpy.context.tool_settings.image_paint.brush.secondary_color=tmp
+
+        elif mode == 'PAINT_GPENCIL':
+            # 在 Grease Pencil 绘制模式下
+            tmp = copy.deepcopy(bpy.context.tool_settings.gpencil_paint.brush.color)
+            bpy.context.tool_settings.gpencil_paint.brush.color = bpy.context.tool_settings.gpencil_paint.brush.secondary_color
+            bpy.context.tool_settings.gpencil_paint.brush.secondary_color=tmp
+        elif mode == 'SCULPT':
+            tmp = copy.deepcopy(bpy.data.brushes['Paint'].color)
+            bpy.data.brushes['Paint'].color = bpy.data.brushes['Paint'].secondary_color
+            bpy.data.brushes['Paint'].secondary_color=tmp
+
+
+def register_keymaps(keylists):
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+
+    keymaps = []
+
+    if kc:
+        for keylist in keylists:
+            for item in keylist:
+                keymap = item.get("keymap")
+                space_type = item.get("space_type", "EMPTY")
+
+                if keymap:
+                    km = kc.keymaps.get(keymap)
+
+                    if not km:
+                        km = kc.keymaps.new(name=keymap, space_type=space_type)
+
+                    if km:
+                        idname = item.get("idname")
+                        type = item.get("type")
+                        value = item.get("value")
+
+                        shift = item.get("shift", False)
+                        ctrl = item.get("ctrl", False)
+                        alt = item.get("alt", False)
+
+                        kmi = km.keymap_items.new(idname, type, value, shift=shift, ctrl=ctrl, alt=alt)
+
+                        if kmi:
+                            properties = item.get("properties")
+
+                            if properties:
+                                for name, value in properties:
+                                    setattr(kmi.properties, name, value)
+
+                            active = item.get("active", True)
+                            kmi.active = active
+
+                            keymaps.append((km, kmi))
+    else:
+        print("WARNING: Keyconfig not availabe, skipping Kourin_tooltools keymaps")
+
+    return keymaps
+
+def unregister_keymaps(keymaps):
+    for km, kmi in keymaps:
+        km.keymap_items.remove(kmi)
+def im_pow(list,gamma):
+    return (pow(list[0],gamma),pow(list[1],gamma),pow(list[2],gamma))
+
+
+from functools import wraps
 def undoable(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -41,382 +405,10 @@ def undoable(func):
             raise e
     
     return wrapper
-
-def shortcuts(**shortcut_map):
-    """Decorator to add parameter shortcuts to any function"""
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            # Process shortcuts
-            for short, full in shortcut_map.items():
-                if short in kwargs and full not in kwargs:
-                    kwargs[full] = kwargs.pop(short)
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-def rgba_value(hex_color, factor, alpha=None):
-    color = QColor(hex_color)
-    r, g, b, a = color.getRgbF()
-    
-    # Apply factor to RGB values
-    r = min(max(r * factor, 0), 1)
-    g = min(max(g * factor, 0), 1)
-    b = min(max(b * factor, 0), 1)
-    
-    # Use the provided alpha if given, otherwise keep the original
-    a = alpha if alpha is not None else a
-    
-    color.setRgbF(r, g, b, a)
-    return color.name(QColor.HexArgb)
-
-def get_icon(icon_name, opacity=1.0, size=24):
-    package_dir = Path(__file__).parent
-    icon_path = package_dir / 'ft_picker_icons' / icon_name
-    if icon_path.exists():
-        icon_pixmap = QtGui.QPixmap(str(icon_path))
-        icon_pixmap = icon_pixmap.scaled(size, size, QtCore.Qt.KeepAspectRatio)
-        
-        if opacity < 1.0:
-            transparent_pixmap = QtGui.QPixmap(icon_pixmap.size())
-            transparent_pixmap.fill(QtCore.Qt.transparent)
-            
-            painter = QtGui.QPainter(transparent_pixmap)
-            painter.setOpacity(opacity)
-            painter.drawPixmap(0, 0, icon_pixmap)
-            painter.end()
-            
-            return transparent_pixmap
-        
-        return icon_pixmap
-    return None
-#----------------------------------------------------------------------------------------------------------
-import os
-import sys
-import subprocess
-import ctypes
-from ctypes import wintypes
-import time
-#----------------------------------------------------------------------------------------------------------
-def blender_main_window():
-    """Cross-platform method to focus Blender window"""
-    system = sys.platform
-    
-    if system == "win32":
-        return _focus_blender_windows()
-    elif system == "darwin":
-        return _focus_blender_macos()
-    elif system.startswith("linux"):
-        return _focus_blender_linux()
-    else:
-        print(f"Unsupported platform: {system}")
-        return False
-
-def _focus_blender_windows():
-    """Windows implementation using Win32 API"""
-    try:
-        current_pid = os.getpid()
-        
-        def enum_windows_proc(hwnd, lParam):
-            if ctypes.windll.user32.IsWindowVisible(hwnd):
-                # Check 1: Process ID match
-                process_id = wintypes.DWORD()
-                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
-                
-                if process_id.value == current_pid:
-                    # Check 2: Window title contains Blender
-                    length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-                    if length > 0:
-                        buffer = ctypes.create_unicode_buffer(length + 1)
-                        ctypes.windll.user32.GetWindowTextW(hwnd, buffer, length + 1)
-                        title = buffer.value
-                        
-                        # Check 3: Window class is Blender's
-                        class_buffer = ctypes.create_unicode_buffer(256)
-                        ctypes.windll.user32.GetClassNameW(hwnd, class_buffer, 256)
-                        class_name = class_buffer.value
-                        
-                        if ("Blender" in title and 
-                            class_name == "GHOST_WindowClass"):  # Blender's specific window class
-                            ctypes.windll.user32.SetForegroundWindow(hwnd)
-                            #print(f"Focused Blender window: {title}")
-                            return False
-            return True
-        
-        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-        ctypes.windll.user32.EnumWindows(EnumWindowsProc(enum_windows_proc), 0)
-        return True
-        
-    except Exception as e:
-        print(f"Error focusing window on Windows: {e}")
-        return False
-
-def _focus_blender_macos():
-    """macOS implementation using AppleScript"""
-    try:
-        # Method 1: Try to activate Blender application
-        applescript = '''
-        tell application "System Events"
-            set blenderApps to (every process whose name contains "Blender")
-            if (count of blenderApps) > 0 then
-                set frontmost of first item of blenderApps to true
-                return true
-            else
-                return false
-            end if
-        end tell
-        '''
-        
-        result = subprocess.run(
-            ['osascript', '-e', applescript],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode == 0 and "true" in result.stdout:
-            #print("Focused Blender window on macOS")
-            return True
-        
-        # Method 2: Try alternative approach with specific window
-        applescript_alt = '''
-        tell application "System Events"
-            set blenderWindows to (every window of every process whose name contains "Blender")
-            if (count of blenderWindows) > 0 then
-                set frontmost of (process of first item of blenderWindows) to true
-                return true
-            else
-                return false
-            end if
-        end tell
-        '''
-        
-        result = subprocess.run(
-            ['osascript', '-e', applescript_alt],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode == 0 and "true" in result.stdout:
-            #print("Focused Blender window on macOS (alternative method)")
-            return True
-            
-        print("No Blender windows found on macOS")
-        return False
-        
-    except subprocess.TimeoutExpired:
-        print("Timeout while trying to focus Blender on macOS")
-        return False
-    except Exception as e:
-        print(f"Error focusing window on macOS: {e}")
-        return False
-
-def _focus_blender_linux():
-    """Linux implementation using wmctrl and xdotool"""
-    try:
-        # Method 1: Try wmctrl (more reliable if available)
-        if _command_exists('wmctrl'):
-            result = subprocess.run(
-                ['wmctrl', '-l'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')
-                for line in lines:
-                    if 'Blender' in line:
-                        # Extract window ID (first column)
-                        window_id = line.split()[0]
-                        # Activate the window
-                        subprocess.run(['wmctrl', '-ia', window_id], timeout=5)
-                        #print(f"Focused Blender window on Linux: {line.strip()}")
-                        return True
-        
-        # Method 2: Try xdotool as fallback
-        if _command_exists('xdotool'):
-            result = subprocess.run(
-                ['xdotool', 'search', '--name', 'Blender'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0 and result.stdout.strip():
-                window_ids = result.stdout.strip().split('\n')
-                for window_id in window_ids:
-                    if window_id:
-                        # Activate the window
-                        subprocess.run(['xdotool', 'windowactivate', window_id], timeout=5)
-                        #print(f"Focused Blender window on Linux (xdotool): {window_id}")
-                        return True
-        
-        # Method 3: Try xprop + xdotool combination
-        if _command_exists('xprop') and _command_exists('xdotool'):
-            result = subprocess.run(
-                ['xdotool', 'search', '--class', 'Blender'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0 and result.stdout.strip():
-                window_ids = result.stdout.strip().split('\n')
-                for window_id in window_ids:
-                    if window_id:
-                        subprocess.run(['xdotool', 'windowactivate', window_id], timeout=5)
-                        #print(f"Focused Blender window on Linux (class search): {window_id}")
-                        return True
-        
-        print("No Blender windows found on Linux or required tools not available")
-        print("Install wmctrl or xdotool for better window management: sudo apt install wmctrl xdotool")
-        return False
-        
-    except subprocess.TimeoutExpired:
-        print("Timeout while trying to focus Blender on Linux")
-        return False
-    except Exception as e:
-        print(f"Error focusing window on Linux: {e}")
-        return False
-
-def _command_exists(command):
-    """Check if a command exists in the system PATH"""
-    try:
-        subprocess.run(
-            ['which', command],
-            capture_output=True,
-            check=True,
-            timeout=2
-        )
-        return True
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
-        return False
-#----------------------------------------------------------------------------------------------------------
-def get_blender_windows_info():
-    """Get information about Blender windows for debugging"""
-    system = sys.platform
-    
-    if system == "win32":
-        return _get_windows_info_windows()
-    elif system == "darwin":
-        return _get_windows_info_macos()
-    elif system.startswith("linux"):
-        return _get_windows_info_linux()
-    else:
-        return f"Unsupported platform: {system}"
-
-def _get_windows_info_windows():
-    """Get Blender window info on Windows"""
-    try:
-        current_pid = os.getpid()
-        windows_info = []
-        
-        def enum_windows_proc(hwnd, lParam):
-            if ctypes.windll.user32.IsWindowVisible(hwnd):
-                process_id = wintypes.DWORD()
-                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
-                
-                length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-                if length > 0:
-                    buffer = ctypes.create_unicode_buffer(length + 1)
-                    ctypes.windll.user32.GetWindowTextW(hwnd, buffer, length + 1)
-                    title = buffer.value
-                    
-                    class_buffer = ctypes.create_unicode_buffer(256)
-                    ctypes.windll.user32.GetClassNameW(hwnd, class_buffer, 256)
-                    class_name = class_buffer.value
-                    
-                    if "Blender" in title or class_name == "GHOST_WindowClass":
-                        windows_info.append({
-                            'hwnd': hwnd,
-                            'pid': process_id.value,
-                            'title': title,
-                            'class': class_name,
-                            'is_current_process': process_id.value == current_pid
-                        })
-            return True
-        
-        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-        ctypes.windll.user32.EnumWindows(EnumWindowsProc(enum_windows_proc), 0)
-        
-        return windows_info
-        
-    except Exception as e:
-        return f"Error getting window info: {e}"
-
-def _get_windows_info_macos():
-    """Get Blender window info on macOS"""
-    try:
-        applescript = '''
-        tell application "System Events"
-            set blenderProcesses to (every process whose name contains "Blender")
-            set processInfo to {}
-            repeat with proc in blenderProcesses
-                set procWindows to windows of proc
-                repeat with win in procWindows
-                    set end of processInfo to {name of proc, name of win}
-                end repeat
-            end repeat
-            return processInfo
-        end tell
-        '''
-        
-        result = subprocess.run(
-            ['osascript', '-e', applescript],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        return result.stdout if result.returncode == 0 else f"Error: {result.stderr}"
-        
-    except Exception as e:
-        return f"Error getting window info: {e}"
-
-def _get_windows_info_linux():
-    """Get Blender window info on Linux"""
-    try:
-        info = []
-        
-        if _command_exists('wmctrl'):
-            result = subprocess.run(
-                ['wmctrl', '-l'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')
-                for line in lines:
-                    if 'Blender' in line:
-                        info.append(f"wmctrl: {line}")
-        
-        if _command_exists('xdotool'):
-            result = subprocess.run(
-                ['xdotool', 'search', '--name', 'Blender'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0:
-                window_ids = result.stdout.strip().split('\n')
-                for window_id in window_ids:
-                    if window_id:
-                        info.append(f"xdotool: Window ID {window_id}")
-        
-        return info if info else "No Blender windows found"
-        
-    except Exception as e:
-        return f"Error getting window info: {e}"
-
-    
 def is_sync_collection(obj):
     if obj is None:
         return False
-    from ..ui.qt_global import GlobalProperty as GP
+    from ..imgui_setup.imgui_global import GlobalImgui as GP
     if obj.as_pointer() not in GP.get().obj_sync_col:
         return False
     return obj.type=='MESH' and GP.get().obj_sync_col[obj.as_pointer()] is not None

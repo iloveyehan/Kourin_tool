@@ -1,2 +1,20 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# 从 GitHub 自动生成的 source archive 中排除敏感/不想发布的文件/目录
+/build/ export-ignore
+/lib/ export-ignore
+/robust_laplacian/ export-ignore
+/venv/ export-ignore
+
+# 排除一些单文件
+/test.py export-ignore
+/test.py export-ignore
+/release.zip export-ignore
+/release.py export-ignore
+/setup.py export-ignore
+/test.spec export-ignore
+/render.py export-ignore
+/render1.py export-ignore
+/render.pyx export-ignore
+/render.c export-ignore
+
+# 保留 README/LICENSE （不要给它们 export-ignore）
+/*.pyd !export-ignore

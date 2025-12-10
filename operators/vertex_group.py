@@ -2,16 +2,9 @@ from pathlib import Path
 import bpy
 from bpy.app.translations import pgettext as _
 from ..utils.vertex_group import vg_clean_advanced,vg_clear_unused
-from ..ui.qt_global import GlobalProperty as GP
+from ..imgui_setup.imgui_global import GlobalImgui as GP
 
 
-from ..common.class_loader.auto_load import ClassAutoloader
-vrc_vg_ops=ClassAutoloader(Path(__file__))
-def reg_vrc_vg_ops():
-    vrc_vg_ops.init()
-    vrc_vg_ops.register()
-def unreg_vrc_vg_ops():
-    vrc_vg_ops.unregister()
 
 class Kourin_vg_clean_advanced(bpy.types.Operator):
     """清理所有顶点组中的非法权重（0、负值、NaN）"""
@@ -668,7 +661,7 @@ class Kourin_vg_trans_modi(bpy.types.Operator):
         return context.active_object and context.active_object.type=='MESH'
 
     def execute(self, context):
-        from ..ui.qt_global import GlobalProperty
+
         obj = context.object
         if not obj or obj.type != 'MESH':
             return {'CANCELLED'}
@@ -743,7 +736,7 @@ class CopyVertexGroupWeights(bpy.types.Operator):
         vg = obj.vertex_groups.active
         bm = bpy.context.object.data
         # 清空缓存
-        from ..ui.qt_global import GlobalProperty as GP
+        # from ..imgui_setup.imgui_global import GlobalImgui as GP
         # GP.get()._weight_cache.clear()
         CopyVertexGroupWeights._weight_cache.clear()
         for v in obj.data.vertices:
@@ -797,7 +790,7 @@ POINT_COLOR = (1.0, 0.0, 0.0, 1.0)
 KEEP_TOP_N = 4            # 保留最强的前 N 个骨骼影响（保留用于其他操作）
 # --------------------------------------------
 
-_draw_handle = None
+# _draw_handle = None
 
 
 
@@ -883,7 +876,7 @@ def draw_callback(_self, _context):
     绘制使用缓存的 positions；不会进行任何计算。
     """
 
-    from ..ui.qt_global import GlobalProperty as GP
+    from ..imgui_setup.imgui_global import GlobalImgui as GP
     gp=GP.get()
     if not gp._cached_positions:
         return
@@ -902,44 +895,71 @@ def draw_callback(_self, _context):
     shader.bind()
     shader.uniform_float("color", POINT_COLOR)
     batch.draw(shader)
+def safe_remove_draw_handle(handle):
+    """返回 True 如果成功移除；否则 False（并打印错误）。"""
+    try:
+        bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
+        return True
+    except Exception as e:
+        print("safe_remove_draw_handle: remove failed:", e)
+        return False
 
 # ---------- Operators ----------
 class VIEW3D_OT_toggle_draw_overinfluence(bpy.types.Operator):
-    """Toggle drawing of cached over-influenced verts (drawing only, no compute)"""
     bl_idname = "kourin.toggle_draw_overinfluence"
     bl_label = "Toggle Draw Over-Influenced"
 
     def execute(self, context):
-        global _draw_handle
-        
-        # toggle off
-        if _draw_handle is not None:
-            try:
-                bpy.types.SpaceView3D.draw_handler_remove(_draw_handle, 'WINDOW')
-            except Exception:
-                pass
-            _draw_handle = None
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    area.tag_redraw()
-            self.report({'INFO'}, "Over-influence drawing stopped.")
+        from ..imgui_setup.imgui_global import GlobalImgui
+        gp = GlobalImgui.get()
+
+        # 确保 list 存在
+        if not hasattr(gp, "_draw_handles"):
+            gp._draw_handles = []
+
+        # 如果已有 handlers，则尝试全部移除（作为一次关闭）
+        if gp._draw_handles:
+            removed_any = False
+            # 逐个尝试移除，这样即使某个失败，其它也能被清掉
+            remaining = []
+            for h in gp._draw_handles:
+                ok = safe_remove_draw_handle(h)
+                if ok:
+                    removed_any = True
+                else:
+                    # 如果失败，不要丢掉引用，保留以便下次尝试
+                    remaining.append(h)
+            gp._draw_handles = remaining
+
+            # 如果全部移除了，设置状态并刷新视图
+            if removed_any:
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
+                self.report({'INFO'}, "Over-influence drawing stopped.")
+            else:
+                self.report({'WARNING'}, "未能移除部分 draw handlers（查看控制台）。")
             return {'FINISHED'}
 
-        # toggle on -> add handler (但不做计算)
-        _draw_handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (None, None), 'WINDOW', 'POST_VIEW')
+        # 否则没有 handler -> 添加一个
+        handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback, (None, None), 'WINDOW', 'POST_VIEW')
+        gp._draw_handles.append(handle)
+
+        # 重绘所有 3D 视图
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
                 area.tag_redraw()
 
         self.report({'INFO'}, "Over-influence drawing started (uses cached results).")
         return {'FINISHED'}
+
 class VIEW3D_OT_recompute_overinfluence(bpy.types.Operator):
     """Recompute over-influenced verts for the active mesh object (only when clicked)"""
     bl_idname = "kourin.recompute_overinfluence"
     bl_label = "Recompute Over-Influenced Now"
 
     def execute(self, context):
-        from ..ui.qt_global import GlobalProperty as GP
+        from ..imgui_setup.imgui_global import GlobalImgui as GP
         gp=GP.get()
         obj = context.object
         if obj is None or obj.type != 'MESH':
@@ -975,6 +995,8 @@ class VIEW3D_OT_remove_extra_weights(bpy.types.Operator):
     )
 
     def execute(self, context):
+        from ..imgui_setup.imgui_global import GlobalImgui as GP
+        gp=GP.get()
         obj = context.object
         if obj is None or obj.type != 'MESH':
             self.report({'ERROR'}, "Select a mesh object in Object Mode.")
@@ -1045,6 +1067,25 @@ class VIEW3D_OT_remove_extra_weights(bpy.types.Operator):
             obj.data.update()
         except Exception:
             pass
+        # 如果已有 handlers，则尝试全部移除（作为一次关闭）
+        if gp._draw_handles:
+            removed_any = False
+            # 逐个尝试移除，这样即使某个失败，其它也能被清掉
+            remaining = []
+            for h in gp._draw_handles:
+                ok = safe_remove_draw_handle(h)
+                if ok:
+                    removed_any = True
+                else:
+                    # 如果失败，不要丢掉引用，保留以便下次尝试
+                    remaining.append(h)
+            gp._draw_handles = remaining
+
+            # 如果全部移除了，设置状态并刷新视图
+            if removed_any:
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
 
         self.report({'INFO'}, f"处理完成：顶点数 {vert_count}，删除权重条目约 {changed_count}（近似）。")
         return {'FINISHED'}

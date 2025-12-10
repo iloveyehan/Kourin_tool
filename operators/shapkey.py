@@ -4,13 +4,7 @@ import numpy as np
 
 from ..utils.mesh_data_transfer import MeshData
 
-from ..common.class_loader.auto_load import ClassAutoloader
-vrc_sk_ops=ClassAutoloader(Path(__file__))
-def reg_vrc_sk_ops():
-    vrc_sk_ops.init()
-    vrc_sk_ops.register()
-def unreg_vrc_sk_ops():
-    vrc_sk_ops.unregister()
+
 
     
 #copy from cats
@@ -573,7 +567,11 @@ class KourinApylyModiWithShapekey(bpy.types.Operator):
 
             # 删除形态键 应用修改器
             with bpy.context.temp_override(active_object=apply_all.obj):
-                bpy.ops.object.shape_key_remove(all=True)
+                try:
+                    bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                except:
+                    bpy.ops.object.shape_key_remove(all=True)
+                bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
                 bpy.ops.object.convert(target='MESH')
 
             # 还原形态键
@@ -586,9 +584,13 @@ class KourinApylyModiWithShapekey(bpy.types.Operator):
 
         else:
             try:
-                bpy.ops.object.modifier_apply(modifier=self.mod_name, report=True)
-            except:
-
+                print('进入try')
+                result =bpy.ops.object.modifier_apply(modifier=self.mod_name, report=True)
+                if result != {'FINISHED'}:
+                    raise RuntimeError("Modifier apply failed")
+            except Exception as e:
+                print(f'进入except: {e}')
+                print('进入except')
                 # print(self.mod_name)
                 mod_temp = bpy.context.active_object.modifiers
                 mod_off = {}
@@ -664,7 +666,40 @@ class MESH_OT_copy_selected_verts(bpy.types.Operator):
 
         self.report({'INFO'}, f"已复制 {len(copied_coords)} 个顶点坐标")
         return {'FINISHED'}
+class MESH_OT_copy_selected_verts(bpy.types.Operator):
+    """复制当前编辑模式下选中顶点的坐标"""
+    bl_idname = "kourin.copy_selected_verts_pos_basis"
+    bl_label = "复制选中顶点坐标"
+    bl_options = {"REGISTER", "UNDO"}
 
+    def execute(self, context):
+        from ..utils.shapekey import record_shape_keys,apply_shape_keys
+        global copied_coords
+        copied_coords.clear()
+
+        obj = context.active_object
+        if obj is None or obj.type != "MESH":
+            self.report({'ERROR'}, "需要在网格对象上运行")
+            return {'CANCELLED'}
+
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "请在编辑模式下运行")
+            return {'CANCELLED'}
+        index=obj.active_shape_key_index
+        obj.active_shape_key_index=0
+        bpy.ops.object.editmode_toggle()
+        sk=record_shape_keys(obj)
+        bpy.ops.object.shape_key_clear()    
+        bpy.ops.object.editmode_toggle()
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        for v in bm.verts:
+            if v.select:
+                copied_coords.append(v.co.copy())
+        apply_shape_keys(obj,sk)
+        obj.active_shape_key_index=index
+        self.report({'INFO'}, f"已复制 {len(copied_coords)} 个顶点坐标")
+        return {'FINISHED'}
 
 class OBJECT_OT_paste_to_shapekey(bpy.types.Operator):
     """粘贴顶点坐标到当前物体的形态键选中顶点"""
@@ -673,8 +708,9 @@ class OBJECT_OT_paste_to_shapekey(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
+        bpy.ops.kourin.copy_selected_verts_pos_basis()
         global copied_coords
-
+        
         obj = context.active_object
         if obj is None or obj.type != "MESH":
             self.report({'ERROR'}, "需要在网格对象上运行")

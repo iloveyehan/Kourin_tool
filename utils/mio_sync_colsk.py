@@ -2,7 +2,7 @@
 import bpy
 
 from .utils import has_shapekey, is_sync_collection
-from ..ui.qt_global import GlobalProperty as GP
+from ..imgui_setup.imgui_global import GlobalImgui as GP
 
 def sync_shapekey_value():
     object = bpy.context.object
