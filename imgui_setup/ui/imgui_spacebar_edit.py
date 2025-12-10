@@ -30,14 +30,17 @@ class State3:
 
 def combo_with_string_demo(str_list:list):
     """combo() 还可以使用 '\\0' 分隔的字符串格式"""
-    clicked, State3.current = imgui.combo(
+    clicked, idx = imgui.combo(
         "##combo3",
         State3.current,
         str_list
     )
-    
+    State3.current = idx
     if clicked:
         imgui.text(f"选择索引: {State3.current}")
+        print("Current index:", idx, "string:", strings_list[idx] if idx < len(strings_list) else None)
+        from ..imgui_global import GlobalImgui
+        GlobalImgui.get().surface_deform_name=strings_list[idx]
 class Imgui_Spacebar_Edit(bpy.types.Operator, BaseDrawCall):
     bl_idname = "imgui.spacebar_edit"
     bl_label = "spacebar edit"

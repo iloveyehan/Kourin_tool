@@ -3,7 +3,7 @@ import json
 import re
 
 # 定义新版本号（字符串形式）
-version = '1.3.6'
+version = '1.3.7'
 def update_manifest_toml(toml_file_path):
     """更新 TOML 文件中 [addon] 部分的 version 字段"""
     

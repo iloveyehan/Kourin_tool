@@ -111,7 +111,7 @@ from .imgui_setup.mirror_reminder import open_mirror_tip, open_tip
 bl_info = {
     "name": "Kourin_tool",
     "author": "cupcko",
-    "version": (1, 3, 6),
+    "version": (1, 3, 7),
     "blender": (4, 0, 0),
     "location": "3D View,Image Editor",
     "description": "123",
@@ -354,15 +354,18 @@ class Imgui_Window_Imgui(bpy.types.Operator, BaseDrawCall):
         """批量加载图标"""
         icons = {
             'btn_set_viewport_display_random': "material.png",
-            # 'btn_show_axes': "axis_front.png",
+            'btn_show_axes': "axis_front.png",
             'btn_clean_skeleton': "brush_data.png",
-            # 'btn_make_skeleton': "armature_data.png",
-            # 'btn_show_bonename': "group_bone.png",
-            # 'btn_show_in_front': "transform_origins.png",
-            # 'btn_pose_to_reset': "checkmark.png",
+            'btn_make_skeleton': "armature_data.png",
+            'btn_show_bonename': "group_bone.png",
+            'btn_show_in_front': "transform_origins.png",
+            'btn_pose_to_reset': "checkmark.png",
+            'btn_add_sk': "add.png",
+            'btn_rm_sk': "remove.png",
             'btn_sk_special': "downarrow_hlt.png",
             'btn_mv_sk_up': "tria_up.png",
             'btn_mv_sk_down': "tria_down.png",
+            'btn_clear_all_sk_value': "panel_close.png",
             'btn_solo_active_sk': "solo_off.png",
             'btn_sk_edit_mode': "editmode_hlt.png"
         }

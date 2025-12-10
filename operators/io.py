@@ -237,8 +237,8 @@ class Kourin_load_surfacedeform(Operator):
         try:
             # 使用示例
             print('当前文件夹:',MODULE_DIR)
-            if self.file_name=='':
-                self.file_name=gp.get().surface_deform_name + '_fitting_surface'
+            # self.file_name=''
+            self.file_name=gp.get().surface_deform_name + '_fitting_surface'
             filepath = MODULE_DIR /'surface_deform'/ f"{self.file_name}_meshdata.json.gz"
             # filepath = os.path.join(bpy.path.abspath("//"), f"{self.file_name}_meshdata.json.gz")
             data = load_mesh_data(filepath)
@@ -262,8 +262,8 @@ class Kourin_load_loose_surfacedeform(Operator):
         try:
             # 使用示例
             print('当前文件夹:',MODULE_DIR)
-            if self.file_name=='':
-                self.file_name=gp.get().surface_deform_name + '_loose_surface'
+            
+            self.file_name=gp.get().surface_deform_name + '_loose_surface'
             filepath = MODULE_DIR /'surface_deform'/ f"{self.file_name}_meshdata.json.gz"
             # filepath = os.path.join(bpy.path.abspath("//"), f"{self.file_name}_meshdata.json.gz")
             data = load_mesh_data(filepath)
