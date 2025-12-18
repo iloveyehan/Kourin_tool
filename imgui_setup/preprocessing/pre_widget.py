@@ -34,3 +34,14 @@ def pre_widget(self):
         imgui.same_line()
         GlobalImgui.get().btn_text.new('合并##merge_armature',tp='合并骨架\n注意:会合并到激活骨架')
         open_tip('合并##merge_armature','需要选择两个骨架')
+        imgui.same_line()
+        GlobalImgui.get().btn_text.new('统一##unify_nvname',tp='统一所有物体uv名称')
+
+
+        GlobalImgui.get().btn_text.new('递归子集##select_bone_with_children',tp='递归选择所有子集,然后弃选自己')
+        imgui.same_line()
+        GlobalImgui.get().btn_text.new('弃选顶级##remove_top_bones',tp='弃选每根骨链的最顶级骨骼,方便实现连接父级骨骼操作')
+        imgui.same_line()
+        GlobalImgui.get().btn_text.new('连接父级##use_connect',tp='相连项,连接父级')
+
+

@@ -106,34 +106,7 @@ class KourinSetViewportDisplayRandomOperator(bpy.types.Operator):
         # context.space_data.shading.color_type = 'RANDOM'
         return {'FINISHED'}
     
-class KourinShowBoneNameOperator(bpy.types.Operator):
-    """将激活骨架视图显示为棍形，其他骨骼显示为八面锥"""
-    bl_idname = "kourin.show_bone_name"
-    bl_label = "设置物体显示方式为随机"
-    bl_options = {'REGISTER', 'UNDO'}
-    t_f: bpy.props.BoolProperty(name="t_f", default=True)
-    def execute(self, context):
-        for b in context.selected_objects:
-            if b.type=='ARMATURE':
-                b.data.show_names = self.t_f
-        return {'FINISHED'}
-class KourinPoseToReset(bpy.types.Operator):
-    bl_idname = 'kourin.pose_to_reset'
-    bl_label = '应用pose模式的调整'
-    bl_description = '应用pose模式的调整,设置为默认姿势'
-    bl_options = {'REGISTER', 'UNDO'}
 
-    @classmethod
-    def poll(cls, context):
-        return context.active_object.type == 'ARMATURE'
-    def execute(self, context):
-        armature=bpy.context.object
-        mode=bpy.context.object.mode
-        bpy.ops.object.mode_set(mode='OBJECT')
-        pose_to_reset(armature)
-        bpy.ops.object.mode_set(mode=mode)
-        self.report({'INFO'}, "应用完成")
-        return {'FINISHED'}
 
 
 class Kourin_merge_armatures(bpy.types.Operator):
@@ -246,6 +219,22 @@ class Kourin_rename_armatures(bpy.types.Operator):
     
     def execute(self, context):
         finde_common_bones()
+        return {'FINISHED'}
+class Kourin_pose_clear_grs(bpy.types.Operator):
+    """清除骨骼位移旋转缩放"""
+    bl_idname = "kourin.pose_clear_grs"
+    bl_label = "清除骨骼位移旋转缩放"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        return context.mode in ['POSE','PAINT_WEIGHT']
+    
+    def execute(self, context): 
+        bpy.ops.pose.select_all(action='SELECT')
+        bpy.ops.pose.loc_clear()
+        bpy.ops.pose.rot_clear()
+        bpy.ops.pose.scale_clear()
         return {'FINISHED'}
 class Kourin_combine_selected_bone_weights(bpy.types.Operator):
     """多选骨骼，合并权重到激活骨骼，删除其他骨骼（支持镜像处理）"""
@@ -453,8 +442,8 @@ class RenamePoseToRest(bpy.types.Operator):
     def execute(self, context):
         
         saved_data = Common.SavedData()
-
-        armature_obj = Common.get_armature()
+        armature_obj=context.active_object
+        # armature_obj = Common.get_armature()
         mesh_objs = Common.get_meshes_objects(armature_name=armature_obj.name)
         for mesh_obj in mesh_objs:
             me = mesh_obj.data

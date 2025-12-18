@@ -3,7 +3,7 @@ import json
 import re
 
 # 定义新版本号（字符串形式）
-version = '1.3.7'
+version = '1.3.8'
 def update_manifest_toml(toml_file_path):
     """更新 TOML 文件中 [addon] 部分的 version 字段"""
     
@@ -172,10 +172,43 @@ def update_addon_names(init_file_path, toml_file_path):
         print(f"[!] 错误: 未找到文件 - {toml_file_path}")
     except Exception as e:
         print(f"[!] 更新 {toml_file_path} 时发生错误: {e}")
+def update_imgui_global(global_file_path):
+    """更新 imgui_global.py 中 GlobalImgui.version 的字面值"""
+
+    version_tuple = tuple(map(int, version.split(".")))  # 例如 (1,3,7)
+    new_version_code = f"self.version = {version_tuple}"
+
+    try:
+        with open(global_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # 匹配形如：self.version = (0, 0, 0)
+        content_new = re.sub(
+            r"self\.version\s*=\s*\([^)]+\)",
+            new_version_code,
+            content,
+            count=1
+        )
+
+        if content != content_new:
+            with open(global_file_path, 'w', encoding='utf-8') as f:
+                f.write(content_new)
+
+            print(f"[✓] 已更新 imgui_global.py version -> {version_tuple}")
+
+        else:
+            print("[i] 未找到 version 字段，或已是最新值")
+
+    except Exception as e:
+        print(f"[!] 更新 imgui_global.py 时发生错误: {e}")
 # 执行更新
-TOML_FILE = "blender_manifest.toml"
-INIT_FILE = "__init__.py"
-update_json()
-update_bl_info("__init__.py")
-update_manifest_toml("blender_manifest.toml")
-update_addon_names(INIT_FILE, TOML_FILE)
+def main():
+    TOML_FILE = "blender_manifest.toml"
+    INIT_FILE = "__init__.py"
+    update_json()
+    update_bl_info("__init__.py")
+    update_manifest_toml("blender_manifest.toml")
+    update_addon_names(INIT_FILE, TOML_FILE)
+    update_imgui_global("imgui_setup/imgui_global.py")
+if __name__ == "__main__":
+    main()

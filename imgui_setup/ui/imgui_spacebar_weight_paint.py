@@ -56,15 +56,28 @@ class Imgui_Spacebar_Weight_Paint(bpy.types.Operator, BaseDrawCall):
                             tp='中间骨的权重对称到右边'):pass
         
 
+        prop=bpy.context.scene.kourin_weight_transfer_settings
+        if prop.lazyweight_enable:
+            from .weight import lazy_weight
+            lazy_weight(self)
+
+
+
         if GlobalImgui.get().btn_text.new("剪切##weight_cut", 
                             tp='剪切权重'):pass
         imgui.same_line()
         if GlobalImgui.get().btn_text.new("粘贴##weight_paste", 
                             tp='粘贴权重'):pass
-        if GlobalImgui.get().btn_text.new("合权重##weight_cut_combine", 
-                            tp='剪切所有权重合并到激活骨骼'):pass
+        GlobalImgui.get().btn_text.new("合权重##weight_cut_combine", 
+                            tp='剪切所有权重合并到激活骨骼')
+        imgui.same_line()
+        GlobalImgui.get().btn_text.new("清##pose_clear_grs", 
+                            tp='清除骨骼位移旋转缩放')
+        imgui.same_line()
+        GlobalImgui.get().btn_text.new("姿态##rest_to_pose", 
+                            tp='有时候插件出错锁定了静置姿态,不用切姿态模式,直接还原姿态位置')
         
-
+        GlobalImgui.get().btn_text.new('LazyWeight##lazy_weight_toggle',tp='开启或关闭lazyweight快捷按钮',ops=self)
 
         # imgui.show_demo_window()
         self.track_any_cover()

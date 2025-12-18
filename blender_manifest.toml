@@ -3,7 +3,7 @@ schema_version = "1.0.2"
 # Example of manifest file for a Blender extension
 # Change the values according to your extension
 id = "Kourin_tool"
-version = "1.3.7"
+version = "1.3.8"
 name = "Kourin_tool"
 tagline = "Kourin_tool"
 maintainer = "Cupcko <649730016@qq.com>"

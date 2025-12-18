@@ -25,7 +25,15 @@ from .imgui_setup import toast_drawer
 from .operators.main_button import source_obj
 # from . import save
 # from .extern.robust_weight_transfer import Robust_register,Robust_unregister
-
+bl_info = {
+    "name": "Kourin_tool",
+    "author": "cupcko",
+    "version": (1, 3, 8),
+    "blender": (4, 0, 0),
+    "location": "3D View,Image Editor",
+    "description": "123",
+    "category": "3D View"
+}
 
 # --- 自动注册器列表 ---
 CLASSES = []
@@ -108,15 +116,7 @@ from imgui_bundle import ImVec2, ImVec4
 from .imgui_setup.imgui_global import GlobalImgui
 from .imgui_setup.mirror_reminder import open_mirror_tip, open_tip
 
-bl_info = {
-    "name": "Kourin_tool",
-    "author": "cupcko",
-    "version": (1, 3, 7),
-    "blender": (4, 0, 0),
-    "location": "3D View,Image Editor",
-    "description": "123",
-    "category": "3D View"
-}
+
 
 
 class Imgui_Window_Imgui(bpy.types.Operator, BaseDrawCall):
@@ -162,7 +162,7 @@ class Imgui_Window_Imgui(bpy.types.Operator, BaseDrawCall):
         widget_check(self)
         imgui.separator()
         
-        # imgui.show_demo_window()
+        imgui.show_demo_window()
         # 
         if imgui.button("打开新窗口"):
             GlobalImgui.get().show_new_window[0] = True
@@ -433,13 +433,23 @@ class Imgui_Window_Imgui(bpy.types.Operator, BaseDrawCall):
         """
         if not hasattr(GlobalImgui.get(), 'imgui_vrc_instance'):
             return False
-        
+        def is_alive(obj):
+                try:
+                    obj.as_pointer()
+                    return True
+                except ReferenceError:
+                    return False
         # 遍历所有 ImGui 实例
+        check=[]
+        for instance in GlobalImgui.get().imgui_vrc_instance:
+            if is_alive(instance):
+                check.append(instance)
+        GlobalImgui.get().imgui_vrc_instance.clear()
+        GlobalImgui.get().imgui_vrc_instance=check
         for instance in GlobalImgui.get().imgui_vrc_instance:
             if hasattr(instance, 'ops_name'):
                 # print('跳过自己')
                 continue  # 跳过自己
-                
             if instance == self:
                 # print('跳过自己')
                 continue  # 跳过自己

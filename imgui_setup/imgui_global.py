@@ -20,6 +20,7 @@ class GlobalImgui:
     _instance = None
 
     def __init__(self):
+        self.version = (1, 3, 8)
         self.imgui_vrc_instance = []
         #子窗口管理器
         self.windows = {}  # { "window_id": { "open": [bool], "content": [...] } }

@@ -9,12 +9,12 @@
 /test.py export-ignore
 /release.zip export-ignore
 /release.py export-ignore
-/setup.py export-ignore
+/shader/setup.py export-ignore
 /test.spec export-ignore
-/render.py export-ignore
-/render1.py export-ignore
-/render.pyx export-ignore
-/render.c export-ignore
-
+/shader/render.py export-ignore
+/shader/render1.py export-ignore
+/shader/render.pyx export-ignore
+/shader/render.c export-ignore
+/.gitignore export-ignore
 # 保留 README/LICENSE （不要给它们 export-ignore）
 /*.pyd !export-ignore

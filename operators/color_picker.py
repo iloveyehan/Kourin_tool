@@ -104,6 +104,7 @@ class Imgui_Color_Picker_Imgui(bpy.types.Operator, BaseDrawCall):
             self.color_palette=[list(c) for c in bpy.context.scene['color_picker_col']]
         except:
             self.color_palette = colors
+        self.region , self.mpos = self._get_current_region_and_mpos(context, event)
         self.init_imgui(context)
 
         context.window_manager.modal_handler_add(self)

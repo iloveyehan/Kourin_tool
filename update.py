@@ -33,9 +33,20 @@ def get_remote_version():
     return data  # 返回 dict，包含 version、download_url 等
 
 def get_local_version():
-    addon_module = importlib.import_module('Kourin_tool')
-    version = addon_module.bl_info.get("version", (0, 0, 0))
+    from .imgui_setup.imgui_global import GlobalImgui
+    version=GlobalImgui.get().version
+    # try:
+    #     for a in bpy.context.preferences.addons:
+    #         if 'Kourin_tool' in a.module:
+    #             a_module=importlib.import_module(a.module)
+    #             version=a_module.bl_info.get("version", (0, 0, 0))
+    #             return str(version)
+    # except:
+    #     addon_module = importlib.import_module('Kourin_tool')
+    #     version = addon_module.bl_info.get("version", (0, 0, 0))
     return str(version)
+    # return None
+    
 class KourinCheckUpdateOperator(bpy.types.Operator):
     bl_idname = "kourin.check_update"
     bl_label = "检查更新"

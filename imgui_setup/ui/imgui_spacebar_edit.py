@@ -82,6 +82,13 @@ class Imgui_Spacebar_Edit(bpy.types.Operator, BaseDrawCall):
         imgui.same_line()
         GlobalImgui.get().btn_image.new("##edit_to_paint_with_a", 
                             self.edit_to_paint_with_a,tp='选中骨架,并进入权重绘制',ops=self)
+        prop=bpy.context.scene.kourin_weight_transfer_settings
+        if prop.lazyweight_enable:
+            from .weight import lazy_weight
+            lazy_weight(self)
+        
+
+
         GlobalImgui.get().btn_text.new('新建组##vg_asign',tp='从所选创建值为1的顶点组',ops=self)
         GlobalImgui.get().btn_text.new('传权重,修改器##weight_by_modi',tp='用数据传递修改器',ops=self)
         GlobalImgui.get().btn_text.new('传权重,算法##weight_by_algorithm',tp='用算法',ops=self)
@@ -94,6 +101,7 @@ class Imgui_Spacebar_Edit(bpy.types.Operator, BaseDrawCall):
         # GlobalImgui.get().btn_text.new('复制##copy_basis_pos',tp='选中顶点:复制默认形态键的位置')
         # imgui.same_line()
         GlobalImgui.get().btn_text.new('粘贴##paste_basis_pos',tp='选中顶点:粘贴默认形态键位置到激活形态键\n这样可以保证切换形态键时\n选中顶点的位置不变',ops=self)
+        GlobalImgui.get().btn_text.new('LazyWeight##lazy_weight_toggle',tp='开启或关闭lazyweight快捷按钮',ops=self)
         
         
 

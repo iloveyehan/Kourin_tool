@@ -207,7 +207,7 @@ def determine_and_convert(vertex_group_name: str, LR: str = None):
             patterns.append(_pattern_for(right))
             replace_map[left] = right
             replace_map[right] = left
-
+    patterns = sorted(patterns, key=len, reverse=True)
     regex = re.compile("|".join(patterns))
 
     if LR == "center":
@@ -301,7 +301,8 @@ class Kourin_mirror_weight(bpy.types.Operator):
 
         # 获取选择顶点组
         select_vg = []
-        for b in rig.data.bones:
+        for b in rig.pose.bones:
+        # for b in rig.data.bones:
             if b.select:
                 select_vg.append(b.name)
         return select_vg

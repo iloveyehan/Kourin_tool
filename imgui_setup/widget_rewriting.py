@@ -32,6 +32,8 @@ class ButtonActions:
         """
         # 提取 ID 部分（例如 'Label###handle_vg_mirror' -> 'vg_mirror'）
         # 兼容 '###' 和 '##' 分隔符
+        self.weight=btn.split('#')[0]
+        # print('self.weight1',self.weight)
         name_id = btn.split('#')[-1] 
         # 构造方法名，例如 'handle_vg_mirror'
         method_name = f"handle_{name_id}"
@@ -59,6 +61,18 @@ class ButtonActions:
     @undoable
     def handle_set_viewport_display_random(self, *args):
         bpy.ops.kourin.set_viewport_display_random()
+    @undoable
+    def handle_unify_nvname(self, *args):
+        bpy.ops.kourin.unify_uv_name()
+    @undoable
+    def handle_select_bone_with_children(self, *args):
+        bpy.ops.kourin.select_bone_with_children()
+    @undoable
+    def handle_remove_top_bones(self, *args):
+        bpy.ops.kourin.remove_top_bones()
+    @undoable
+    def handle_use_connect(self, *args):
+        bpy.ops.kourin.use_connect()
         
     @undoable
     def handle_clean_skeleton(self, *args):
@@ -85,7 +99,6 @@ class ButtonActions:
         for b in bpy.context.selected_objects:
             if b.type=='ARMATURE':
                 b.data.show_names = not b.data.show_names
-        # bpy.ops.kourin.show_bone_name()
     @undoable
     def handle_show_axes(self, *args):
         obj=bpy.context.active_object
@@ -294,6 +307,21 @@ class ButtonActions:
     @undoable
     def handle_faceset_from_visible(self, *args):
         bpy.ops.sculpt.face_sets_create(mode='VISIBLE')
+    @undoable
+    def handle_asign_weight(self, *args):
+        # print('self.weight2',self.weight)
+        from fractions import Fraction
+        weight=float(Fraction(self.weight))
+        # print(' weight', weight)
+        
+        bpy.ops.kourin.set_weight(weight=weight,normalize="None",type_another_mode='REPLACE')
+        if bpy.context.mode=='EDIT_MESH':
+            self.handle_edit_to_paint_with_a()
+        print('权重设置为',weight)
+    @undoable
+    def handle_lazy_weight_toggle(self, *args):
+        prop=bpy.context.scene.kourin_weight_transfer_settings
+        prop.lazyweight_enable = not prop.lazyweight_enable
         
     @undoable
     def handle_use_automasking_topology(self, *args):
@@ -456,6 +484,20 @@ class ButtonActions:
     @undoable
     def handle_paste_basis_pos(self):
         bpy.ops.kourin.paste_to_shapekey()
+    @undoable
+    def handle_rest_to_pose(self):
+        from ..utils.armature import comfirm_one_arm,get_arm_modi_obj
+        obj=bpy.context.object
+        if not comfirm_one_arm(obj):
+            # self.msg=self.tr('有多个可用的骨骼修改器,先禁用多余的')
+            print('有多个可用的骨骼修改器,先禁用多余的')
+            return
+        modi_arm=get_arm_modi_obj(obj)
+        modi_arm.object.data.pose_position = 'POSE'
+
+    @undoable
+    def handle_pose_clear_grs(self):
+        bpy.ops.kourin.pose_clear_grs()
     @undoable
     def handle_sym_to_left(self):
         from .imgui_global import GlobalImgui

@@ -99,4 +99,8 @@ class ImguiSceneSettingsGroup(bpy.types.PropertyGroup):
         name='自动镜像',
         description='自动开启物体x镜像',
         default=True)
+    lazyweight_enable: bpy.props.BoolProperty(
+        name='指定权重',
+        description='指定常用的权重值',
+        default=False)
 

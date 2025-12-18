@@ -17,7 +17,7 @@ def get_name():
     '''获取插件文件夹名[True,addon name][False,extension name]'''
     path = get_path()
     # 否则返回路径的名称
-    print('get_name',path.name)
+    # print('get_name',path.name)
     return path.name
 def get_bl_name():
     '''获取插件文件夹名[True,addon name][False,extension name]'''
@@ -33,7 +33,7 @@ def get_bl_name():
         return [False,f'bl_ext.extensions_local.{path.name}']
     
     # 否则返回路径的名称
-    print('get_name',path.name)
+    # print('get_name',path.name)
     return [True,path.name]
 # Path.stem
 def get_prefs():
@@ -109,10 +109,10 @@ def brush_value_based_on_mode(set=False,get=False,size=False,strength=False,):
         elif mode == 'TEXTURE_PAINT':
             # 在纹理绘制模式下
             if size:
-                bpy.context.scene.tool_settings.unified_paint_settings.size = size
+                ps.unified_paint_settings.size=size
                 # bpy.context.tool_settings.image_paint.brush.size = size
             if strength:
-                bpy.context.tool_settings.image_paint.brush.strength = strength
+                ps.brush.strength=strength
 
         elif mode == 'PAINT_GPENCIL':
             # 在 Grease Pencil 绘制模式下
@@ -193,9 +193,9 @@ def brush_value_based_on_mode(set=False,get=False,size=False,strength=False,):
             # 在纹理绘制模式下
             brush = bpy.context.tool_settings.image_paint.brush
             if size:
-                value = bpy.context.scene.tool_settings.unified_paint_settings.size
+                value = ps.unified_paint_settings.size
             if strength:
-                value = brush.strength
+                value = ps.brush.strength
         elif mode == 'PAINT_GPENCIL':
             if size:
                 # bpy.context.tool_settings.gpencil_paint.brush.strength=strength
